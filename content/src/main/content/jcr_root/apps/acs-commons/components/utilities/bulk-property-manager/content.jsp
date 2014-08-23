@@ -17,6 +17,7 @@
   ~ limitations under the License.
   ~ #L%
   --%>
+
 <%@include file="/libs/foundation/global.jsp" %><%
 
 %><%@page session="false" %><%
@@ -29,7 +30,7 @@
 
     <p></p>
 
-    <form>
+    <form method="GET" action="${resource.path}.dry-run.csv" target="_blank">
 
         <div class="form-row">
             <h4>JCR-SQL2 Query</h4>
@@ -62,6 +63,17 @@
                     <option value="copy">Copy</option>
                     <option value="move">Move</option>
                 </select>
+            </span>
+        </div>
+
+        <div class="form-row">
+            <h4>Dry Run</h4>
+
+            <span>
+                <label><input
+                        ng-model="form.dryRun"
+                        type="checkbox"
+                        name="dryRun" checked><span>Generate a CSV of all resources that will be modified</span></label>
             </span>
         </div>
 

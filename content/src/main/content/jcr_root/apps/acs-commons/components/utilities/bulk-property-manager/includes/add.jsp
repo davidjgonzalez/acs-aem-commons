@@ -71,7 +71,7 @@
 
     <div class="form-row">
         <div class="form-left-cell">&nbsp;</div>
-        <button ng-click="add()"
+        <button ng-click="if (!form.dryRun) { add(); }"
                 class="submit-button primary">Add Property</button>
     </div>
 </div>

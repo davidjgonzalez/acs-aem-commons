@@ -21,7 +21,6 @@
 package com.adobe.acs.commons.content.properties.bulk.impl;
 
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ValueMap;
@@ -30,60 +29,38 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.Node;
-import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
 import java.util.HashMap;
 import java.util.Map;
 
 @SlingServlet(
-        label = "ACS AEM Commons - Property Manager - Add Property Servlet",
+        label = "ACS AEM Commons - Bulk Property Manager - DryRun Servlet",
         description = "...",
         methods = "POST",
         resourceTypes = "acs-commons/components/utilities/bulk-property-manager",
-        selectors = AddPropertyServlet.TYPE,
-        extensions = "json"
+        selectors = DryRunServlet.TYPE,
+        extensions = "csv"
 )
-public class AddPropertyServlet extends AbstractBaseServlet {
-    public static final String TYPE = "add";
+public class DryRunServlet extends AbstractBaseServlet {
+    public static final String TYPE = "dry-run";
 
-    private static final Logger log = LoggerFactory.getLogger(AddPropertyServlet.class);
+    private static final Logger log = LoggerFactory.getLogger(DryRunServlet.class);
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
         final Map<String, Object> map = new HashMap<String, Object>();
 
-        json = json.getJSONObject(AddPropertyServlet.TYPE);
-
-        map.put("name", json.getString("name"));
-        map.put("value", json.getString("value"));
-        map.put("type", json.optString("type", "String"));
-        map.put("overwrite", json.optBoolean("overwrite", false));
+        map.put("dryRun", true);
 
         return map;
     }
 
     @Override
     boolean execute(final Resource resource, final ValueMap params) {
-        final Node node = resource.adaptTo(Node.class);
-        final String propertyName = params.get("name", String.class);
-        final boolean overwrite = params.get("overwrite", false);
-
         try {
-            if (StringUtils.isNotBlank(propertyName)
-                    && (!node.hasProperty(propertyName) || overwrite)) {
-
-                node.setProperty(propertyName, params.get("value", ""),
-                        PropertyType.valueFromName(params.get("type", "String")));
-
-                return true;
-            }
+            return canModifyProperties(resource);
         } catch (RepositoryException e) {
-            log.error(e.getMessage());
-            log.warn("Could not add property [ {} ] to resource [ {} ]", propertyName, resource.getPath());
+            return false;
         }
-
-        return false;
     }
-
 }

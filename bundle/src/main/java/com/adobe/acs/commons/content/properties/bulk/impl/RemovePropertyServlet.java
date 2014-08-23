@@ -46,8 +46,9 @@ import java.util.Map;
         extensions = "json"
 )
 public class RemovePropertyServlet extends AbstractBaseServlet {
-    private static final Logger log = LoggerFactory.getLogger(RemovePropertyServlet.class);
     public static final String TYPE = "remove";
+
+    private static final Logger log = LoggerFactory.getLogger(RemovePropertyServlet.class);
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
@@ -67,7 +68,7 @@ public class RemovePropertyServlet extends AbstractBaseServlet {
 
         final String propertyName = params.get("name", "");
         try {
-            if(StringUtils.isNotBlank(propertyName) && node.hasProperty(propertyName)) {
+            if (StringUtils.isNotBlank(propertyName) && node.hasProperty(propertyName)) {
                 JcrUtil.setProperty(node, propertyName, null);
                 return true;
             }

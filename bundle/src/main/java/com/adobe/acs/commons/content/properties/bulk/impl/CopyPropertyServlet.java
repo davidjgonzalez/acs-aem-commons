@@ -45,8 +45,9 @@ import java.util.Map;
         extensions = "json"
 )
 public class CopyPropertyServlet extends AbstractBaseServlet {
-    private static final Logger log = LoggerFactory.getLogger(CopyPropertyServlet.class);
     public static final String TYPE = "copy";
+
+    private static final Logger log = LoggerFactory.getLogger(CopyPropertyServlet.class);
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
@@ -68,7 +69,7 @@ public class CopyPropertyServlet extends AbstractBaseServlet {
         final Node node = resource.adaptTo(Node.class);
 
         try {
-            if(node.hasProperty(srcPropertyName)) {
+            if (node.hasProperty(srcPropertyName)) {
                 log.error("Found src property on [ {} ]", resource.getPath());
                 final Property srcProperty = node.getProperty(srcPropertyName);
 
