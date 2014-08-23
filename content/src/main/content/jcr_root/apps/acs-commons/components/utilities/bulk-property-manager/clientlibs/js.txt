@@ -1,0 +1,7 @@
+#base=js
+
+app.js
+controllers/add.js
+controllers/copy.js
+controllers/remove.js
+controllers/move.js
