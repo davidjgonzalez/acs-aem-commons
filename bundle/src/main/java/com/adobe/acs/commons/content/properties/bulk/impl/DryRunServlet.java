@@ -42,15 +42,15 @@ import java.util.Map;
         extensions = "csv"
 )
 public class DryRunServlet extends AbstractBaseServlet {
-    public static final String TYPE = "dry-run";
-
     private static final Logger log = LoggerFactory.getLogger(DryRunServlet.class);
+
+    public static final String TYPE = "dry-run";
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
         final Map<String, Object> map = new HashMap<String, Object>();
 
-        map.put("dryRun", true);
+        map.put(KEY_DRY_RUN, true);
 
         return map;
     }

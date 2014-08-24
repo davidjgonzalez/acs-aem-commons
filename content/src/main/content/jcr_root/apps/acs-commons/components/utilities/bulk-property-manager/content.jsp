@@ -30,7 +30,7 @@
 
     <p></p>
 
-    <form method="GET" action="${resource.path}.dry-run.csv" target="_blank">
+    <form>
 
         <div class="form-row">
             <h4>JCR-SQL2 Query</h4>
@@ -66,23 +66,15 @@
             </span>
         </div>
 
-        <div class="form-row">
-            <h4>Dry Run</h4>
-
-            <span>
-                <label><input
-                        ng-model="form.dryRun"
-                        type="checkbox"
-                        name="dryRun" checked><span>Generate a CSV of all resources that will be modified</span></label>
-            </span>
-        </div>
-
         <cq:include script="includes/add.jsp"/>
         <cq:include script="includes/copy.jsp"/>
         <cq:include script="includes/remove.jsp"/>
         <cq:include script="includes/move.jsp"/>
 
     </form>
+
+    <cq:include script="includes/dry-run.jsp"/>
+
 </div>
 
 <cq:includeClientLib js="acs-commons.bulk-property-manager.app"/>
