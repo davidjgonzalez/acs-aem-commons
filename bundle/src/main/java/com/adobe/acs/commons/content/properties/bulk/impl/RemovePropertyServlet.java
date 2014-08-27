@@ -21,7 +21,6 @@
 package com.adobe.acs.commons.content.properties.bulk.impl;
 
 
-import com.day.cq.commons.jcr.JcrUtil;
 import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.resource.ModifiableValueMap;
@@ -62,20 +61,23 @@ public class RemovePropertyServlet extends AbstractBaseServlet {
     }
 
     @Override
-    boolean execute(final Resource resource, final ValueMap params) {
+    Status execute(final Resource resource, final ValueMap params) {
         final Node node = resource.adaptTo(Node.class);
         final ModifiableValueMap properties = resource.adaptTo(ModifiableValueMap.class);
 
         final String propertyName = params.get("name", "");
         try {
             if (StringUtils.isNotBlank(propertyName) && node.hasProperty(propertyName)) {
-                JcrUtil.setProperty(node, propertyName, null);
-                return true;
+                properties.remove(propertyName);
+                return Status.SUCCESS;
+            } else {
+                return Status.NOOP;
             }
         } catch (RepositoryException e) {
-            log.warn("Could not properly process resource [ {} ]", resource.getPath());
+            log.warn("Could not process property [ {} ] remove on resource [ {} ]", propertyName, resource.getPath());
+            log.error(e.getMessage());
         }
 
-        return false;
+        return Status.ERROR;
     }
 }

@@ -20,6 +20,8 @@
 
 <%@include file="/libs/foundation/global.jsp" %><%
 
+    pageContext.setAttribute("currentTime", System.currentTimeMillis());
+
 %><%@page session="false" %><%
 
 %><div id="acs-commons-bulk-property-manager-app"
@@ -30,8 +32,7 @@
 
     <p></p>
 
-    <form>
-
+    <div class="form">
         <div class="form-row">
             <h4>JCR-SQL2 Query</h4>
 
@@ -47,6 +48,16 @@
                     Please ensure that this query is correct prior to submitting form as it will collect the resources
                     for processing which can be an expensive operation for property management processes.
                 </div>
+            </span>
+        </div>
+
+        <div class="form-row">
+            <h4>Relative Path</h4>
+
+            <span>
+               <input ng-model="form.relativePath"
+                      type="text"
+                      placeholder="jcr:content/foo"/>
             </span>
         </div>
 
@@ -71,9 +82,25 @@
         <cq:include script="includes/remove.jsp"/>
         <cq:include script="includes/move.jsp"/>
 
-    </form>
+    </div>
 
-    <cq:include script="includes/dry-run.jsp"/>
+    <form ng-show="!form.mode"
+          method="post"
+          action="${resource.path}/bulk-property-dry-run.${currentTime}.csv"
+          target="_blank">
+
+        <div class="form-row">
+            <div class="form-left-cell">&nbsp;</div>
+            <span>
+                <input type="hidden"
+                       name="params"
+                       value="{{ form }}"/>
+
+                <button type="submit"
+                        class="submit-button">Dry Run</button>
+            </span>
+        </div>
+    </form>
 
 </div>
 

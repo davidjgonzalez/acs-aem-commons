@@ -18,10 +18,12 @@
  * #L%
  */
 
-.submit-button {
-  text-transform: capitalize;
-}
+package com.adobe.acs.commons.content.properties.bulk.impl;
 
-.inline-form {
-  display: inline;
+public enum Status {
+    SUCCESS,
+    ACCESS_ERROR,
+    RELATIVE_PATH_NOT_FOUND,
+    ERROR,
+    NOOP
 }

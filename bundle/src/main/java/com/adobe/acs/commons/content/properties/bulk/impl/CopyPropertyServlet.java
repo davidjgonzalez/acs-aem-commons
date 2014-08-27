@@ -62,7 +62,7 @@ public class CopyPropertyServlet extends AbstractBaseServlet {
     }
 
     @Override
-    boolean execute(final Resource resource, final ValueMap params) {
+    Status execute(final Resource resource, final ValueMap params) {
         final String srcPropertyName = params.get("src", String.class);
         final String destPropertyName = params.get("dest", String.class);
 
@@ -75,12 +75,15 @@ public class CopyPropertyServlet extends AbstractBaseServlet {
 
                 JcrUtil.copy(srcProperty, node, destPropertyName);
 
-                return true;
+                return Status.SUCCESS;
+            } else {
+                return Status.NOOP;
             }
         } catch (RepositoryException e) {
-            e.printStackTrace();
+            log.error("Could not process property [ {} ] copy on resource [ {} ]", srcPropertyName, resource.getPath());
+            log.error(e.getMessage());
         }
 
-        return false;
+        return Status.ERROR;
     }
 }

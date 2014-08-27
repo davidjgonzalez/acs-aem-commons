@@ -21,6 +21,8 @@
 package com.adobe.acs.commons.content.properties.bulk.impl;
 
 
+import com.day.jcr.vault.util.PathUtil;
+import org.apache.commons.lang.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.Resource;
@@ -28,6 +30,7 @@ import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.apache.sling.api.wrappers.ValueMapDecorator;
+import org.apache.sling.commons.json.JSONArray;
 import org.apache.sling.commons.json.JSONException;
 import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
@@ -40,14 +43,14 @@ import javax.jcr.security.AccessControlManager;
 import javax.jcr.security.Privilege;
 import javax.servlet.ServletException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
     protected static final int DEFAULT_BATCH_SIZE = 1000;
-
-    protected static final boolean DEFAULT_DRY_RUN = false;
 
     protected static final String REQUEST_PARAM_PARAMS = "params";
 
@@ -56,6 +59,9 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
     protected static final String KEY_DRY_RUN = "dryRun";
 
     protected static final String KEY_QUERY = "query";
+
+    protected static final String KEY_RELATIVE_PATH = "relativePath";
+
 
     private static final Logger log = LoggerFactory.getLogger(AbstractBaseServlet.class);
 
@@ -69,12 +75,14 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
 
             final String query = jsonParams.optString(KEY_QUERY, "");
             final int batchSize = jsonParams.optInt(KEY_BATCH_SIZE, DEFAULT_BATCH_SIZE);
+            final String relativePath = StringUtils.stripToNull(jsonParams.optString(KEY_RELATIVE_PATH, ""));
 
             // Get command specific
 
             params.putAll(getParams(jsonParams));
 
-            final boolean dryRun = params.get("dryRun", false);
+            final boolean dryRun = params.get(KEY_DRY_RUN, false);
+
 
             if(dryRun) {
                 response.setHeader("Content-Type", "text/csv");
@@ -90,24 +98,57 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
             final Session session = resourceResolver.adaptTo(Session.class);
             final Iterator<Resource> resources = resourceResolver.findResources(query, Query.JCR_SQL2);
 
+            final List<String> successPaths = new ArrayList<String>();
+            final List<String> noopPaths = new ArrayList<String>();
+            final List<String> errorPaths = new ArrayList<String>();
+
             int total = 0;
             int count = 0;
             while (resources.hasNext()) {
                 total++;
-                final Resource resource = resources.next();
+                final Resource foundResource = resources.next();
+                Resource resource = foundResource;
+
+                // Relative path resolution
+
+                if(relativePath != null) {
+                    final Resource relativeResource = foundResource.getChild(relativePath);
+
+                    if(relativeResource != null) {
+                        resource = relativeResource;
+                    } else {
+                        if(dryRun) {
+                            response.getWriter().println(Status.RELATIVE_PATH_NOT_FOUND.toString() + "," + resource.getPath());
+                        } else {
+                            errorPaths.add(PathUtil.makePath(foundResource.getPath(), relativePath));
+                            log.warn("Could not find relative resource at [ {} ] ~> [ {} ]", foundResource.getPath(),
+                                    relativePath);
+                        }
+
+                        // Could not find a relative resource; so skip and move on
+                        continue;
+                    }
+                }
+
+                // Resource processing
 
                 if (dryRun) {
-
-                    String status = "error";
-                    if (execute(resource, params)) {
-                        status = "success";
-                    }
-
-                    response.getWriter().println(status + "," + resource.getPath());
-
+                    final Status status = execute(resource, params);
+                    response.getWriter().println(status.toString() + "," + resource.getPath());
                 } else {
-                    if (execute(resource, params)) {
+                    final Status status = execute(resource, params);
+
+                    if(Status.SUCCESS.equals(status)) {
+                        // Success
+                        successPaths.add(resource.getPath());
                         count++;
+                    } else if(Status.ERROR.equals(status)
+                            || Status.ACCESS_ERROR.equals(status)) {
+                        // Errors
+                        errorPaths.add(resource.getPath());
+                    } else if(Status.NOOP.equals(status)) {
+                        // No-op
+                        noopPaths.add(resource.getPath());
                     }
 
                     if (count != 0 && count % batchSize == 0) {
@@ -130,6 +171,9 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
             if(!dryRun) {
                 jsonResponse.put("total", total);
                 jsonResponse.put("count", count);
+                jsonResponse.put("successPaths", new JSONArray(successPaths));
+                jsonResponse.put("errorPaths", new JSONArray(errorPaths));
+                jsonResponse.put("noopPaths", new JSONArray(noopPaths));
 
                 response.getWriter().print(jsonResponse.toString());
             }
@@ -154,5 +198,5 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
 
     abstract Map<String, Object> getParams(JSONObject json) throws JSONException;
 
-    abstract boolean execute(Resource resource, ValueMap params);
+    abstract Status execute(Resource resource, ValueMap params);
 }

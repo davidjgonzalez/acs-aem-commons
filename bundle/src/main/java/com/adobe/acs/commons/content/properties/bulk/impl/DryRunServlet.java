@@ -37,14 +37,11 @@ import java.util.Map;
         label = "ACS AEM Commons - Bulk Property Manager - DryRun Servlet",
         description = "...",
         methods = "POST",
-        resourceTypes = "acs-commons/components/utilities/bulk-property-manager",
-        selectors = DryRunServlet.TYPE,
+        resourceTypes = "acs-commons/components/utilities/bulk-property-manager/dry-run",
         extensions = "csv"
 )
 public class DryRunServlet extends AbstractBaseServlet {
     private static final Logger log = LoggerFactory.getLogger(DryRunServlet.class);
-
-    public static final String TYPE = "dry-run";
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
@@ -56,11 +53,15 @@ public class DryRunServlet extends AbstractBaseServlet {
     }
 
     @Override
-    boolean execute(final Resource resource, final ValueMap params) {
+    Status execute(final Resource resource, final ValueMap params) {
         try {
-            return canModifyProperties(resource);
+            if(canModifyProperties(resource)) {
+                return Status.SUCCESS;
+            } else {
+                return Status.ACCESS_ERROR;
+            }
         } catch (RepositoryException e) {
-            return false;
+            return Status.ERROR;
         }
     }
 }

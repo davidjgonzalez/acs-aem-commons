@@ -19,22 +19,21 @@
   --%>
 
 <%@include file="/libs/foundation/global.jsp" %><%
+
+    pageContext.setAttribute("currentTime", System.currentTimeMillis());
+
 %><%@page session="false" %>
 
-<div ng-show="form.mode"
-     class="form-row">
-    <h4>&nbsp;</h4>
-        <span>
-            <form method="post"
-                  action="${resource.path}.dry-run.csv"
-                  download="bulk-property.dry-run.csv"
-                  target="_blank">
-                <input type="text"
-                       name="params"
-                       value="{{ form }}"/>
+<form method="post"
+      class="inline-form"
+      action="${resource.path}/bulk-property-dry-run.${currentTime}.csv"
+      target="_blank">
 
-                <button type="submit"
-                        class="submit-button">Dry Run</button>
-            </form>
-        </span>
-</div>
+    <input type="hidden"
+           name="params"
+           value="{{ form }}"/>
+
+    <button type="submit"
+            class="submit-button">Dry Run</button>
+</form>
+

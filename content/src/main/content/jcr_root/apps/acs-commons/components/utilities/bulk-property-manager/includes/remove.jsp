@@ -34,7 +34,12 @@
 
     <div class="form-row">
         <div class="form-left-cell">&nbsp;</div>
-        <button ng-click="remove()"
-                class="submit-button primary">Delete Property</button>
+
+        <span>
+            <cq:include script="dry-run.jsp"/>
+
+            <button ng-click="remove()"
+                    class="submit-button primary">Delete Property</button>
+        </span>
     </div>
 </div>

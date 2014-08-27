@@ -64,7 +64,7 @@ public class AddPropertyServlet extends AbstractBaseServlet {
     }
 
     @Override
-    boolean execute(final Resource resource, final ValueMap params) {
+    Status execute(final Resource resource, final ValueMap params) {
         final Node node = resource.adaptTo(Node.class);
         final String propertyName = params.get("name", String.class);
         final boolean overwrite = params.get("overwrite", false);
@@ -76,14 +76,16 @@ public class AddPropertyServlet extends AbstractBaseServlet {
                 node.setProperty(propertyName, params.get("value", ""),
                         PropertyType.valueFromName(params.get("type", "String")));
 
-                return true;
+                return Status.SUCCESS;
+            } else {
+                return Status.NOOP;
             }
         } catch (RepositoryException e) {
+            log.error("Could not process property [ {} ] add on resource [ {} ]", propertyName, resource.getPath());
             log.error(e.getMessage());
-            log.warn("Could not add property [ {} ] to resource [ {} ]", propertyName, resource.getPath());
         }
 
-        return false;
+        return Status.ERROR;
     }
 
 }
