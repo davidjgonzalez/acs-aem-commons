@@ -18,11 +18,14 @@
  * #L%
  */
 
-package com.adobe.acs.commons.content.properties.bulk.impl;
+package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 
+import com.adobe.acs.commons.content.properties.bulk.impl.Status;
+import com.adobe.acs.commons.util.TypeUtil;
 import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
+import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.commons.json.JSONException;
@@ -30,9 +33,7 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.Node;
-import javax.jcr.PropertyType;
-import javax.jcr.RepositoryException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -57,35 +58,43 @@ public class AddPropertyServlet extends AbstractBaseServlet {
 
         map.put("name", json.getString("name"));
         map.put("value", json.getString("value"));
-        map.put("type", json.optString("type", "String"));
         map.put("overwrite", json.optBoolean("overwrite", false));
+
+        final String type = json.optString("type", "String");
+        final String value = json.getString("value");
+
+        map.put("value", this.getValueObject(type, value));
 
         return map;
     }
 
     @Override
     Status execute(final Resource resource, final ValueMap params) {
-        final Node node = resource.adaptTo(Node.class);
         final String propertyName = params.get("name", String.class);
         final boolean overwrite = params.get("overwrite", false);
 
-        try {
-            if (StringUtils.isNotBlank(propertyName)
-                    && (!node.hasProperty(propertyName) || overwrite)) {
+        final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
 
-                node.setProperty(propertyName, params.get("value", ""),
-                        PropertyType.valueFromName(params.get("type", "String")));
+        if (StringUtils.isNotBlank(propertyName)
+                && (!mvm.keySet().contains(propertyName) || overwrite)) {
 
-                return Status.SUCCESS;
-            } else {
-                return Status.NOOP;
-            }
-        } catch (RepositoryException e) {
-            log.error("Could not process property [ {} ] add on resource [ {} ]", propertyName, resource.getPath());
-            log.error(e.getMessage());
+            mvm.put(propertyName, params.get("value"));
+
+            return Status.SUCCESS;
+        } else {
+            return Status.NOOP;
         }
-
-        return Status.ERROR;
     }
 
+    protected final Object getValueObject(final String type, final String value) {
+        if(StringUtils.equalsIgnoreCase(type, "Long")) {
+            return TypeUtil.toObjectType(value, Long.class);
+        } else if(StringUtils.equalsIgnoreCase(type, "Date")) {
+            return TypeUtil.toObjectType(value, Date.class);
+        } else if(StringUtils.equalsIgnoreCase(type, "Boolean")) {
+            return TypeUtil.toObjectType(value, Boolean.class);
+        } else {
+            return TypeUtil.toObjectType(value, String.class);
+        }
+    }
 }

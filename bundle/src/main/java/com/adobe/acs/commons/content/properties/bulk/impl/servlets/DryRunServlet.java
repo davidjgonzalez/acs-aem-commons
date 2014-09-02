@@ -18,10 +18,10 @@
  * #L%
  */
 
-package com.adobe.acs.commons.content.properties.bulk.impl;
+package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 
-import com.day.cq.commons.jcr.JcrUtil;
+import com.adobe.acs.commons.content.properties.bulk.impl.Status;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ValueMap;
@@ -30,61 +30,39 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.Node;
-import javax.jcr.Property;
 import javax.jcr.RepositoryException;
 import java.util.HashMap;
 import java.util.Map;
 
 @SlingServlet(
-        label = "ACS AEM Commons - Property Manager - Move Property Servlet",
+        label = "ACS AEM Commons - Bulk Property Manager - DryRun Servlet",
         description = "...",
         methods = "POST",
-        resourceTypes = "acs-commons/components/utilities/bulk-property-manager",
-        selectors = MovePropertyServlet.TYPE,
-        extensions = "json"
+        resourceTypes = "acs-commons/components/utilities/bulk-property-manager/dry-run",
+        extensions = "csv"
 )
-public class MovePropertyServlet extends AbstractBaseServlet {
-    public static final String TYPE = "move";
-
-    private static final Logger log = LoggerFactory.getLogger(MovePropertyServlet.class);
+public class DryRunServlet extends AbstractBaseServlet {
+    private static final Logger log = LoggerFactory.getLogger(DryRunServlet.class);
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
         final Map<String, Object> map = new HashMap<String, Object>();
 
-        json = json.getJSONObject(TYPE);
-
-        map.put("src", json.getString("src"));
-        map.put("dest", json.getString("dest"));
+        map.put(KEY_DRY_RUN, true);
 
         return map;
     }
 
     @Override
     Status execute(final Resource resource, final ValueMap params) {
-        final String srcPropertyName = params.get("src", String.class);
-        final String destPropertyName = params.get("dest", String.class);
-
-        final Node node = resource.adaptTo(Node.class);
-
         try {
-            if (node.hasProperty(srcPropertyName)) {
-                log.error("Found src property on [ {} ]", resource.getPath());
-                final Property srcProperty = node.getProperty(srcPropertyName);
-
-                JcrUtil.copy(srcProperty, node, destPropertyName);
-                JcrUtil.setProperty(node, srcPropertyName, null);
-
+            if (canModifyProperties(resource)) {
                 return Status.SUCCESS;
             } else {
-                return Status.NOOP;
+                return Status.ACCESS_ERROR;
             }
         } catch (RepositoryException e) {
-            log.error("Could not process property [ {} ] move on resource [ {} ]", srcPropertyName, resource.getPath());
-            log.error(e.getMessage());
+            return Status.ERROR;
         }
-
-        return Status.ERROR;
     }
 }

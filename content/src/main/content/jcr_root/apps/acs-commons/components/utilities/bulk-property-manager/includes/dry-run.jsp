@@ -26,7 +26,7 @@
 
 <form method="post"
       class="inline-form"
-      action="${resource.path}/bulk-property-dry-run.${currentTime}.csv"
+      action="${resource.path}/bulk-property-dry-run.csv"
       target="_blank">
 
     <input type="hidden"

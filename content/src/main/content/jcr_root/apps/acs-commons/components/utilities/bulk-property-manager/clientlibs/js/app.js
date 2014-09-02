@@ -32,10 +32,20 @@ bulkPropertyManagerApp.controller('MainCtrl', function ($scope, $http, $timeout)
     $scope.notifications = [];
 
     $scope.form = {
+        queryMode: 'constructed',
+        raw: {},
+        constructed: {
+            collectionMode: 'traversal',
+            properties: [
+                { name: '', value: ''}
+            ],
+            propertiesOperand: 'OR'
+        },
         add: {},
         copy: {},
         remove: {},
-        move: {}
+        move: {},
+        findAndReplace: {}
     };
 });
 

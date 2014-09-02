@@ -18,11 +18,12 @@
  * #L%
  */
 
-package com.adobe.acs.commons.content.properties.bulk.impl;
+package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 
-import com.day.cq.commons.jcr.JcrUtil;
+import com.adobe.acs.commons.content.properties.bulk.impl.Status;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
+import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.commons.json.JSONException;
@@ -30,9 +31,6 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.Node;
-import javax.jcr.Property;
-import javax.jcr.RepositoryException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -45,9 +43,9 @@ import java.util.Map;
         extensions = "json"
 )
 public class CopyPropertyServlet extends AbstractBaseServlet {
-    public static final String TYPE = "copy";
-
     private static final Logger log = LoggerFactory.getLogger(CopyPropertyServlet.class);
+
+    public static final String TYPE = "copy";
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
@@ -66,24 +64,15 @@ public class CopyPropertyServlet extends AbstractBaseServlet {
         final String srcPropertyName = params.get("src", String.class);
         final String destPropertyName = params.get("dest", String.class);
 
-        final Node node = resource.adaptTo(Node.class);
+        final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
 
-        try {
-            if (node.hasProperty(srcPropertyName)) {
-                log.error("Found src property on [ {} ]", resource.getPath());
-                final Property srcProperty = node.getProperty(srcPropertyName);
+        if (mvm.keySet().contains(srcPropertyName)) {
 
-                JcrUtil.copy(srcProperty, node, destPropertyName);
+            mvm.put(destPropertyName, mvm.get(srcPropertyName));
 
-                return Status.SUCCESS;
-            } else {
-                return Status.NOOP;
-            }
-        } catch (RepositoryException e) {
-            log.error("Could not process property [ {} ] copy on resource [ {} ]", srcPropertyName, resource.getPath());
-            log.error(e.getMessage());
+            return Status.SUCCESS;
+        } else {
+            return Status.NOOP;
         }
-
-        return Status.ERROR;
     }
 }

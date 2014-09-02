@@ -18,10 +18,10 @@
  * #L%
  */
 
-package com.adobe.acs.commons.content.properties.bulk.impl;
+package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 
-import org.apache.commons.lang.StringUtils;
+import com.adobe.acs.commons.content.properties.bulk.impl.Status;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
@@ -31,23 +31,21 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.Node;
-import javax.jcr.RepositoryException;
 import java.util.HashMap;
 import java.util.Map;
 
 @SlingServlet(
-        label = "ACS AEM Commons - Property Manager - Remove Property Servlet",
+        label = "ACS AEM Commons - Property Manager - Move Property Servlet",
         description = "...",
         methods = "POST",
         resourceTypes = "acs-commons/components/utilities/bulk-property-manager",
-        selectors = RemovePropertyServlet.TYPE,
+        selectors = MovePropertyServlet.TYPE,
         extensions = "json"
 )
-public class RemovePropertyServlet extends AbstractBaseServlet {
-    public static final String TYPE = "remove";
+public class MovePropertyServlet extends AbstractBaseServlet {
+    public static final String TYPE = "move";
 
-    private static final Logger log = LoggerFactory.getLogger(RemovePropertyServlet.class);
+    private static final Logger log = LoggerFactory.getLogger(MovePropertyServlet.class);
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
@@ -55,29 +53,26 @@ public class RemovePropertyServlet extends AbstractBaseServlet {
 
         json = json.getJSONObject(TYPE);
 
-        map.put("name", json.getString("name"));
+        map.put("src", json.getString("src"));
+        map.put("dest", json.getString("dest"));
 
         return map;
     }
 
     @Override
     Status execute(final Resource resource, final ValueMap params) {
-        final Node node = resource.adaptTo(Node.class);
-        final ModifiableValueMap properties = resource.adaptTo(ModifiableValueMap.class);
+        final String srcPropertyName = params.get("src", String.class);
+        final String destPropertyName = params.get("dest", String.class);
 
-        final String propertyName = params.get("name", "");
-        try {
-            if (StringUtils.isNotBlank(propertyName) && node.hasProperty(propertyName)) {
-                properties.remove(propertyName);
-                return Status.SUCCESS;
-            } else {
-                return Status.NOOP;
-            }
-        } catch (RepositoryException e) {
-            log.warn("Could not process property [ {} ] remove on resource [ {} ]", propertyName, resource.getPath());
-            log.error(e.getMessage());
+        final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
+
+        if (mvm.keySet().contains(srcPropertyName)) {
+            mvm.put(destPropertyName, mvm.get(srcPropertyName));
+            mvm.remove(srcPropertyName);
+
+            return Status.SUCCESS;
+        } else {
+            return Status.NOOP;
         }
-
-        return Status.ERROR;
     }
 }

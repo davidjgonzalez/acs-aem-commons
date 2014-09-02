@@ -18,10 +18,12 @@
  * #L%
  */
 
-package com.adobe.acs.commons.content.properties.bulk.impl;
+package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 
+import com.adobe.acs.commons.content.properties.bulk.impl.Status;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
+import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.commons.json.JSONException;
@@ -29,39 +31,44 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
 import java.util.HashMap;
 import java.util.Map;
 
 @SlingServlet(
-        label = "ACS AEM Commons - Bulk Property Manager - DryRun Servlet",
+        label = "ACS AEM Commons - Property Manager - Remove Property Servlet",
         description = "...",
         methods = "POST",
-        resourceTypes = "acs-commons/components/utilities/bulk-property-manager/dry-run",
-        extensions = "csv"
+        resourceTypes = "acs-commons/components/utilities/bulk-property-manager",
+        selectors = RemovePropertyServlet.TYPE,
+        extensions = "json"
 )
-public class DryRunServlet extends AbstractBaseServlet {
-    private static final Logger log = LoggerFactory.getLogger(DryRunServlet.class);
+public class RemovePropertyServlet extends AbstractBaseServlet {
+    public static final String TYPE = "remove";
+
+    private static final Logger log = LoggerFactory.getLogger(RemovePropertyServlet.class);
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
         final Map<String, Object> map = new HashMap<String, Object>();
 
-        map.put(KEY_DRY_RUN, true);
+        json = json.getJSONObject(TYPE);
+
+        map.put("name", json.getString("name"));
 
         return map;
     }
 
     @Override
     Status execute(final Resource resource, final ValueMap params) {
-        try {
-            if(canModifyProperties(resource)) {
-                return Status.SUCCESS;
-            } else {
-                return Status.ACCESS_ERROR;
-            }
-        } catch (RepositoryException e) {
-            return Status.ERROR;
+        final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
+
+        final String propertyName = params.get("name", "");
+
+        if (mvm.keySet().contains(propertyName)) {
+            mvm.remove(propertyName);
+            return Status.SUCCESS;
+        } else {
+            return Status.NOOP;
         }
     }
 }

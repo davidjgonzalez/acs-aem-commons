@@ -5,3 +5,6 @@ controllers/add.js
 controllers/copy.js
 controllers/remove.js
 controllers/move.js
+controllers/move.js
+controllers/find-and-replace.js
+

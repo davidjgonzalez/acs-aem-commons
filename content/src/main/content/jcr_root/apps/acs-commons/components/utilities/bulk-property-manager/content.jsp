@@ -33,33 +33,26 @@
     <p></p>
 
     <div class="form">
+
         <div class="form-row">
-            <h4>JCR-SQL2 Query</h4>
+            <h4>Query Mode</h4>
 
             <span>
-                <textarea
-                        ng-required="true"
-                        ng-model="form.query"
-                        placeholder="SELECT * FROM [cq:Page] WHERE ISDESCENDANTNODE([/content])"></textarea>
-
-                <div class="instructions">
-                    Example: SELECT * FROM [cq:Page] WHERE ISDESCENDANTNODE([/content])
-                    <br/>
-                    Please ensure that this query is correct prior to submitting form as it will collect the resources
-                    for processing which can be an expensive operation for property management processes.
+                <div class="selector">
+                    <label><input
+                            ng-model="form.queryMode"
+                            value="constructed"
+                            type="radio"><span>Constructed Query</span></label>
+                    <label><input
+                            ng-model="form.queryMode"
+                            value="raw"
+                            type="radio"><span>Raw Query</span></label>
                 </div>
             </span>
         </div>
 
-        <div class="form-row">
-            <h4>Relative Path</h4>
-
-            <span>
-               <input ng-model="form.relativePath"
-                      type="text"
-                      placeholder="jcr:content/foo"/>
-            </span>
-        </div>
+        <cq:include script="includes/collection-raw.jsp"/>
+        <cq:include script="includes/collection-constructed.jsp"/>
 
         <div class="form-row">
             <h4>Mode</h4>
@@ -73,6 +66,7 @@
                     <option value="remove">Remove</option>
                     <option value="copy">Copy</option>
                     <option value="move">Move</option>
+                    <option value="find-and-replace">Find &amp; Replace</option>
                 </select>
             </span>
         </div>
@@ -81,13 +75,12 @@
         <cq:include script="includes/copy.jsp"/>
         <cq:include script="includes/remove.jsp"/>
         <cq:include script="includes/move.jsp"/>
-
+        <cq:include script="includes/find-and-replace.jsp"/>
     </div>
 
     <form ng-show="!form.mode"
           method="post"
-          action="${resource.path}/bulk-property-dry-run.${currentTime}.csv"
-          target="_blank">
+          action="${resource.path}/bulk-property-dry-run.csv">
 
         <div class="form-row">
             <div class="form-left-cell">&nbsp;</div>
