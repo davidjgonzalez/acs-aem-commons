@@ -44,7 +44,7 @@ import java.util.Map;
 )
 public class RemovePropertyServlet extends AbstractBaseServlet {
     public static final String TYPE = "remove";
-
+    public static final String PROPERTY_NAME = "name";
     private static final Logger log = LoggerFactory.getLogger(RemovePropertyServlet.class);
 
     @Override
@@ -53,7 +53,7 @@ public class RemovePropertyServlet extends AbstractBaseServlet {
 
         json = json.getJSONObject(TYPE);
 
-        map.put("name", json.getString("name"));
+        map.put(PROPERTY_NAME, json.getString("name"));
 
         return map;
     }
@@ -62,11 +62,15 @@ public class RemovePropertyServlet extends AbstractBaseServlet {
     Status execute(final Resource resource, final ValueMap params) {
         final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
 
-        final String propertyName = params.get("name", "");
+        final String propertyName = params.get(PROPERTY_NAME, "");
 
         if (mvm.keySet().contains(propertyName)) {
-            mvm.remove(propertyName);
-            return Status.SUCCESS;
+            if (canModifyProperties(resource)) {
+                mvm.remove(propertyName);
+                return Status.SUCCESS;
+            } else {
+                return Status.ACCESS_ERROR;
+            }
         } else {
             return Status.NOOP;
         }

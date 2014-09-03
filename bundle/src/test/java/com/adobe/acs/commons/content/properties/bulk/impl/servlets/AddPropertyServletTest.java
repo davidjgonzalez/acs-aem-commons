@@ -22,50 +22,80 @@ package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.api.wrappers.ModifiableValueMapDecorator;
 import org.apache.sling.api.wrappers.ValueMapDecorator;
-import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
+import javax.jcr.Session;
+import javax.jcr.security.AccessControlManager;
+import javax.jcr.security.Privilege;
 import java.util.HashMap;
 
-import static org.mockito.Mockito.mock;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
 import static org.powermock.api.mockito.PowerMockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 public class AddPropertyServletTest {
 
+    @Mock
+    Resource resource;
+
+    @Mock
+    ResourceResolver resourceResolver;
+
+    @Mock
+    Session session;
+
+    @Mock
+    AccessControlManager accessControlManager;
+
+    @Mock
+    Privilege privilege;
+
+    @Before
+    public void setUp() throws Exception {
+        when(resource.getResourceResolver()).thenReturn(resourceResolver);
+        when(resourceResolver.adaptTo(Session.class)).thenReturn(session);
+        when(session.getAccessControlManager()).thenReturn(accessControlManager);
+        when(accessControlManager.privilegeFromName(Privilege.JCR_MODIFY_PROPERTIES)).thenReturn(privilege);
+        when(accessControlManager.hasPrivileges(anyString(), any(Privilege[].class))).thenReturn(true);
+    }
+
     @Test
     public void testExecute_newString() throws Exception {
-        AddPropertyServlet addPropertyServlet = new AddPropertyServlet();
+        AddPropertyServlet servlet = new AddPropertyServlet();
 
-        Resource resource = mock(Resource.class);
         ModifiableValueMap mvm = new ModifiableValueMapDecorator(new HashMap<String, Object>());
 
         final String expected = "my value";
 
         final ValueMap params = new ValueMapDecorator(new HashMap<String, Object>());
         params.put("name", "myProp");
-        params.put("value", addPropertyServlet.getValueObject("String", "my value"));
+        params.put("value", servlet.getValueObject("String", "my value"));
         params.put("overwrite", false);
 
         when(resource.adaptTo(ModifiableValueMap.class)).thenReturn(mvm);
 
-        addPropertyServlet.execute(resource, params);
+        servlet.execute(resource, params);
 
         final String actual = mvm.get("myProp", String.class);
 
-        Assert.assertEquals(expected, actual);
+        assertEquals(expected, actual);
     }
 
     @Test
     public void testExecute_newLong() throws Exception {
         AddPropertyServlet addPropertyServlet = new AddPropertyServlet();
 
-        Resource resource = mock(Resource.class);
         ModifiableValueMap mvm = new ModifiableValueMapDecorator(new HashMap<String, Object>());
 
         final Long expected = 9999L;
@@ -82,8 +112,8 @@ public class AddPropertyServletTest {
         final Object actualObj = mvm.get("myProp");
         final Long actual = mvm.get("myProp", Long.class);
 
-        Assert.assertTrue(actualObj instanceof Long);
-        Assert.assertEquals(expected, actual);
+        assertTrue(actualObj instanceof Long);
+        assertEquals(expected, actual);
     }
 
     @Test
@@ -92,7 +122,6 @@ public class AddPropertyServletTest {
 
         final String expected = "original value";
 
-        Resource resource = mock(Resource.class);
         ModifiableValueMap mvm = new ModifiableValueMapDecorator(new HashMap<String, Object>());
         mvm.put("myProp", expected);
 
@@ -107,7 +136,7 @@ public class AddPropertyServletTest {
 
         final String actual = mvm.get("myProp", String.class);
 
-        Assert.assertEquals(expected, actual);
+        assertEquals(expected, actual);
     }
 
     @Test
@@ -116,7 +145,6 @@ public class AddPropertyServletTest {
 
         final String expected = "new value";
 
-        Resource resource = mock(Resource.class);
         ModifiableValueMap mvm = new ModifiableValueMapDecorator(new HashMap<String, Object>());
         mvm.put("myProp", "original value");
 
@@ -131,16 +159,16 @@ public class AddPropertyServletTest {
 
         final String actual = mvm.get("myProp", String.class);
 
-        Assert.assertEquals(expected, actual);
+        assertEquals(expected, actual);
     }
 
     @Test
     public void testGetValueObject() throws Exception {
         AddPropertyServlet addPropertyServlet = new AddPropertyServlet();
 
-        Assert.assertEquals("Hello World", addPropertyServlet.getValueObject("String", "Hello World"));
-        Assert.assertEquals(9999, ((Long) addPropertyServlet.getValueObject("Long", "9999")).longValue());
-        Assert.assertEquals(true, ((Boolean) addPropertyServlet.getValueObject("Boolean", "true")).booleanValue());
-        Assert.assertEquals(false, ((Boolean) addPropertyServlet.getValueObject("Boolean", "false")).booleanValue());
+        assertEquals("Hello World", addPropertyServlet.getValueObject("String", "Hello World"));
+        assertEquals(9999, ((Long) addPropertyServlet.getValueObject("Long", "9999")).longValue());
+        assertEquals(true, ((Boolean) addPropertyServlet.getValueObject("Boolean", "true")).booleanValue());
+        assertEquals(false, ((Boolean) addPropertyServlet.getValueObject("Boolean", "false")).booleanValue());
     }
 }

@@ -21,7 +21,6 @@
 package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 import com.adobe.acs.commons.content.properties.bulk.impl.Status;
-import com.day.cq.wcm.api.NameConstants;
 import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.resource.ModifiableValueMap;
@@ -32,8 +31,6 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.Node;
-import javax.jcr.RepositoryException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -48,7 +45,8 @@ import java.util.Map;
 )
 public class FindAndReplaceServlet extends AbstractBaseServlet {
     public static final String TYPE = "find-and-replace";
-
+    public static final String SEARCH_STRING = "searchString";
+    public static final String REPLACE_STRING = "replaceString";
     private static final Logger log = LoggerFactory.getLogger(FindAndReplaceServlet.class);
 
     @Override
@@ -57,87 +55,77 @@ public class FindAndReplaceServlet extends AbstractBaseServlet {
 
         json = json.getJSONObject(AddPropertyServlet.TYPE);
 
-        map.put("pathToSearch", json.getString("search_path"));
-        map.put("searchString", json.getString("find"));
-        map.put("replaceString", json.getString("replace"));
-        map.put("searchComponent", json.getString("search_component"));
-        map.put("searchElement", json.getString("search_element"));
-        map.put("updateReferences", json.getString("update_references"));
+        map.put(SEARCH_STRING, json.getString("find"));
+        map.put(REPLACE_STRING, json.getString("replace"));
 
         return map;
     }
 
     @Override
     Status execute(final Resource resource, final ValueMap params) {
-        final String searchString = params.get("searchString", String.class);
-        final String replaceString = params.get("replaceString", String.class);
 
-        final Node node = resource.adaptTo(Node.class);
+        final String searchString = params.get(SEARCH_STRING, String.class);
+        final String replaceString = params.get(REPLACE_STRING, String.class);
 
-        try {
-            if (node.isNodeType(NameConstants.NT_PAGE)) {
-                // Do not attempt to modify cq:Page nodes
-                return Status.NOOP;
-            }
+        boolean dirty = false;
+        final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
 
-            boolean dirty = false;
-            final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
+        for (final Map.Entry<String, Object> entry : mvm.entrySet()) {
 
-            for (final Map.Entry<String, Object> entry : mvm.entrySet()) {
+            if (entry.getValue() instanceof String) {
 
-                if (entry.getValue() instanceof String) {
+                /** String Value **/
 
-                    /** String Value **/
+                final String originalValue = (String) entry.getValue();
+                final String newValue = originalValue.replaceAll(searchString, replaceString);
 
-                    final String originalValue = (String) entry.getValue();
+                if (!StringUtils.equals(originalValue, newValue)) {
+                    if (canModifyProperties(resource)) {
+                        mvm.put(entry.getKey(), newValue);
+                        dirty = true;
+                    } else {
+                        return Status.ACCESS_ERROR;
+                    }
+                }
+
+            } else if (entry.getValue() instanceof String[]) {
+
+                /** String Array Value **/
+
+                final String[] values = (String[]) entry.getValue();
+
+                boolean dirtyArray = false;
+
+                for (int i = 0; i < values.length; i++) {
+
+                    final String originalValue = values[i];
                     final String newValue = originalValue.replaceAll(searchString, replaceString);
 
                     if (!StringUtils.equals(originalValue, newValue)) {
-                        mvm.put(entry.getKey(), newValue);
-                        dirty = true;
+                        values[i] = newValue;
+                        dirtyArray = true;
                     }
+                }
 
-                } else if (entry.getValue() instanceof String[]) {
-
-                    /** String Array Value **/
-
-                    final String[] values = (String[]) entry.getValue();
-
-                    boolean dirtyArray = false;
-
-                    for (int i = 0; i < values.length; i++) {
-
-                        final String originalValue = values[i];
-                        final String newValue = originalValue.replaceAll(searchString, replaceString);
-
-                        if (!StringUtils.equals(originalValue, newValue)) {
-                            dirtyArray = true;
-                            values[i] = newValue;
-                        }
-                    }
-
-                    if (dirtyArray) {
-                        // If any element in the Array is dirty (was replaced) then update the entire
-                        // property and mark the overall process as being dirty
+                if (dirtyArray) {
+                    // If any element in the Array is dirty (was replaced) then update the entire
+                    // property and mark the overall process as being dirty
+                    if (canModifyProperties(resource)) {
                         mvm.put(entry.getKey(), values);
                         dirty = true;
+                    } else {
+                        return Status.ACCESS_ERROR;
                     }
+                }
 
-                } // End property updating
+            } // End property updating
 
-            } // End for loop over each property on matching node
+        } // End for loop over each property on matching node
 
-            if (dirty) {
-                return Status.SUCCESS;
-            } else {
-                return Status.NOOP;
-            }
-        } catch (RepositoryException e) {
-            log.error("Could not process find and replace on resource [ {} ]",
-                    resource.getPath());
-            log.error(e.getMessage());
+        if (dirty) {
+            return Status.SUCCESS;
+        } else {
+            return Status.NOOP;
         }
-
-        return Status.ERROR;
     }
 }

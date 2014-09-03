@@ -31,6 +31,7 @@
     <h1>Bulk Property Manager</h1>
 
     <p></p>
+    <cq:include script="includes/notifications.jsp"/>
 
     <div class="form">
 

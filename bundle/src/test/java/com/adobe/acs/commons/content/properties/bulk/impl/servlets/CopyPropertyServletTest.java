@@ -22,26 +22,57 @@ package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.api.wrappers.ModifiableValueMapDecorator;
 import org.apache.sling.api.wrappers.ValueMapDecorator;
-import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.runners.MockitoJUnitRunner;
 
+import javax.jcr.Session;
+import javax.jcr.security.AccessControlManager;
+import javax.jcr.security.Privilege;
 import java.util.HashMap;
 
-import static org.mockito.Mockito.mock;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
 import static org.powermock.api.mockito.PowerMockito.when;
 
+@RunWith(MockitoJUnitRunner.class)
 public class CopyPropertyServletTest {
+    @Mock
+    Resource resource;
+
+    @Mock
+    ResourceResolver resourceResolver;
+
+    @Mock
+    Session session;
+
+    @Mock
+    AccessControlManager accessControlManager;
+
+    @Mock
+    Privilege privilege;
+
+    @Before
+    public void setUp() throws Exception {
+        when(resource.getResourceResolver()).thenReturn(resourceResolver);
+        when(resourceResolver.adaptTo(Session.class)).thenReturn(session);
+        when(session.getAccessControlManager()).thenReturn(accessControlManager);
+        when(accessControlManager.privilegeFromName(Privilege.JCR_MODIFY_PROPERTIES)).thenReturn(privilege);
+        when(accessControlManager.hasPrivileges(anyString(), any(Privilege[].class))).thenReturn(true);
+    }
 
     @Test
     public void testExecute() throws Exception {
         CopyPropertyServlet servlet = new CopyPropertyServlet();
 
         final String expected = "one";
-
-        Resource resource = mock(Resource.class);
 
         ModifiableValueMap mvm = new ModifiableValueMapDecorator(new HashMap<String, Object>());
         mvm.put("propOne", expected);
@@ -55,9 +86,9 @@ public class CopyPropertyServletTest {
         servlet.execute(resource, params);
 
         final String srcActual = mvm.get("propOne", String.class);
-        Assert.assertEquals(expected, srcActual);
+        assertEquals(expected, srcActual);
 
         final String destActual = mvm.get("propTwo", String.class);
-        Assert.assertEquals(expected, destActual);
+        assertEquals(expected, destActual);
     }
 }

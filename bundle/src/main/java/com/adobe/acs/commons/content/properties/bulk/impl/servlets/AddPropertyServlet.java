@@ -47,7 +47,9 @@ import java.util.Map;
 )
 public class AddPropertyServlet extends AbstractBaseServlet {
     public static final String TYPE = "add";
-
+    public static final String PROPERTY_NAME = "name";
+    public static final String PROPERTY_VALUE = "value";
+    public static final String OVERWRITE = "overwrite";
     private static final Logger log = LoggerFactory.getLogger(AddPropertyServlet.class);
 
     @Override
@@ -56,42 +58,44 @@ public class AddPropertyServlet extends AbstractBaseServlet {
 
         json = json.getJSONObject(AddPropertyServlet.TYPE);
 
-        map.put("name", json.getString("name"));
-        map.put("value", json.getString("value"));
-        map.put("overwrite", json.optBoolean("overwrite", false));
+        map.put(PROPERTY_NAME, json.getString("name"));
+        map.put(OVERWRITE, json.optBoolean("overwrite", false));
 
         final String type = json.optString("type", "String");
         final String value = json.getString("value");
 
-        map.put("value", this.getValueObject(type, value));
+        map.put(PROPERTY_VALUE, this.getValueObject(type, value));
 
         return map;
     }
 
     @Override
     Status execute(final Resource resource, final ValueMap params) {
-        final String propertyName = params.get("name", String.class);
-        final boolean overwrite = params.get("overwrite", false);
+        final String propertyName = params.get(PROPERTY_NAME, String.class);
+        final boolean overwrite = params.get(OVERWRITE, false);
 
         final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
 
         if (StringUtils.isNotBlank(propertyName)
                 && (!mvm.keySet().contains(propertyName) || overwrite)) {
 
-            mvm.put(propertyName, params.get("value"));
-
-            return Status.SUCCESS;
+            if (canModifyProperties(resource)) {
+                mvm.put(propertyName, params.get(PROPERTY_VALUE));
+                return Status.SUCCESS;
+            } else {
+                return Status.ACCESS_ERROR;
+            }
         } else {
             return Status.NOOP;
         }
     }
 
     protected final Object getValueObject(final String type, final String value) {
-        if(StringUtils.equalsIgnoreCase(type, "Long")) {
+        if (StringUtils.equalsIgnoreCase(type, "Long")) {
             return TypeUtil.toObjectType(value, Long.class);
-        } else if(StringUtils.equalsIgnoreCase(type, "Date")) {
+        } else if (StringUtils.equalsIgnoreCase(type, "Date")) {
             return TypeUtil.toObjectType(value, Date.class);
-        } else if(StringUtils.equalsIgnoreCase(type, "Boolean")) {
+        } else if (StringUtils.equalsIgnoreCase(type, "Boolean")) {
             return TypeUtil.toObjectType(value, Boolean.class);
         } else {
             return TypeUtil.toObjectType(value, String.class);

@@ -30,12 +30,11 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
 import java.util.HashMap;
 import java.util.Map;
 
 @SlingServlet(
-        label = "ACS AEM Commons - Bulk Property Manager - DryRun Servlet",
+        label = "ACS AEM Commons - Bulk Property Manager - Dry-Run Servlet",
         description = "...",
         methods = "POST",
         resourceTypes = "acs-commons/components/utilities/bulk-property-manager/dry-run",
@@ -55,14 +54,10 @@ public class DryRunServlet extends AbstractBaseServlet {
 
     @Override
     Status execute(final Resource resource, final ValueMap params) {
-        try {
-            if (canModifyProperties(resource)) {
-                return Status.SUCCESS;
-            } else {
-                return Status.ACCESS_ERROR;
-            }
-        } catch (RepositoryException e) {
-            return Status.ERROR;
+        if (canModifyProperties(resource)) {
+            return Status.SUCCESS;
+        } else {
+            return Status.ACCESS_ERROR;
         }
     }
 }

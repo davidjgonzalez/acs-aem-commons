@@ -22,27 +22,58 @@ package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.api.wrappers.ModifiableValueMapDecorator;
 import org.apache.sling.api.wrappers.ValueMapDecorator;
-import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.runners.MockitoJUnitRunner;
 
+import javax.jcr.Session;
+import javax.jcr.security.AccessControlManager;
+import javax.jcr.security.Privilege;
 import java.util.HashMap;
 
-import static org.mockito.Mockito.mock;
+import static org.junit.Assert.assertFalse;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
 import static org.powermock.api.mockito.PowerMockito.when;
 
+@RunWith(MockitoJUnitRunner.class)
 public class RemovePropertyServletTest {
+    @Mock
+    Resource resource;
+
+    @Mock
+    ResourceResolver resourceResolver;
+
+    @Mock
+    Session session;
+
+    @Mock
+    AccessControlManager accessControlManager;
+
+    @Mock
+    Privilege privilege;
+
+    @Before
+    public void setUp() throws Exception {
+        when(resource.getResourceResolver()).thenReturn(resourceResolver);
+        when(resourceResolver.adaptTo(Session.class)).thenReturn(session);
+        when(session.getAccessControlManager()).thenReturn(accessControlManager);
+        when(accessControlManager.privilegeFromName(Privilege.JCR_MODIFY_PROPERTIES)).thenReturn(privilege);
+        when(accessControlManager.hasPrivileges(anyString(), any(Privilege[].class))).thenReturn(true);
+    }
 
     @Test
     public void testExecute() throws Exception {
         RemovePropertyServlet servlet = new RemovePropertyServlet();
 
-        Resource resource = mock(Resource.class);
         ModifiableValueMap mvm = new ModifiableValueMapDecorator(new HashMap<String, Object>());
         mvm.put("myProp", "anything");
-
 
         final ValueMap params = new ValueMapDecorator(new HashMap<String, Object>());
         params.put("name", "myProp");
@@ -50,6 +81,6 @@ public class RemovePropertyServletTest {
         when(resource.adaptTo(ModifiableValueMap.class)).thenReturn(mvm);
         servlet.execute(resource, params);
 
-        Assert.assertFalse(mvm.keySet().contains("myProp"));
+        assertFalse(mvm.keySet().contains("myProp"));
     }
 }

@@ -70,6 +70,11 @@ public class TraversalInclusionPolicy implements TreeTraverser.InclusionPolicy<N
 
             final ValueMap resourceProperties = ResourceUtil.getValueMap(resource);
 
+            if(this.properties.size() == 0) {
+                // If no properties then don't check any and assume true
+                return true;
+            }
+
             for (final String name : this.properties.keySet()) {
                 final String needle = this.properties.get(name, String.class);
                 final String haystack = resourceProperties.get(name, String.class);
@@ -79,7 +84,6 @@ public class TraversalInclusionPolicy implements TreeTraverser.InclusionPolicy<N
                 if (match) {
                     if (Operand.OR.equals(this.operand)) {
                         // Return true on the first matching OR expression
-
                         return true;
                     }
                 } else {

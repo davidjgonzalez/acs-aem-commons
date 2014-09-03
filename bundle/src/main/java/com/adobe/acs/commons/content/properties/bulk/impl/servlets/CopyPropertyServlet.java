@@ -43,9 +43,10 @@ import java.util.Map;
         extensions = "json"
 )
 public class CopyPropertyServlet extends AbstractBaseServlet {
-    private static final Logger log = LoggerFactory.getLogger(CopyPropertyServlet.class);
-
     public static final String TYPE = "copy";
+    public static final String SRC_PROPERTY_NAME = "src";
+    public static final String DEST_PROPERTY_NAME = "dest";
+    private static final Logger log = LoggerFactory.getLogger(CopyPropertyServlet.class);
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
@@ -53,24 +54,26 @@ public class CopyPropertyServlet extends AbstractBaseServlet {
 
         json = json.getJSONObject(TYPE);
 
-        map.put("src", json.getString("src"));
-        map.put("dest", json.getString("dest"));
+        map.put(SRC_PROPERTY_NAME, json.getString("src"));
+        map.put(DEST_PROPERTY_NAME, json.getString("dest"));
 
         return map;
     }
 
     @Override
     Status execute(final Resource resource, final ValueMap params) {
-        final String srcPropertyName = params.get("src", String.class);
-        final String destPropertyName = params.get("dest", String.class);
+        final String srcPropertyName = params.get(SRC_PROPERTY_NAME, String.class);
+        final String destPropertyName = params.get(DEST_PROPERTY_NAME, String.class);
 
         final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
 
         if (mvm.keySet().contains(srcPropertyName)) {
-
-            mvm.put(destPropertyName, mvm.get(srcPropertyName));
-
-            return Status.SUCCESS;
+            if (canModifyProperties(resource)) {
+                mvm.put(destPropertyName, mvm.get(srcPropertyName));
+                return Status.SUCCESS;
+            } else {
+                return Status.ACCESS_ERROR;
+            }
         } else {
             return Status.NOOP;
         }

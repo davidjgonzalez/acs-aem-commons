@@ -32,10 +32,13 @@ bulkPropertyManagerApp.controller('CopyCtrl', function ($scope, $http, $timeout)
             headers: {'Content-Type': 'application/x-www-form-urlencoded'}
         }).
             success(function (data, status, headers, config) {
+                $scope.result = data;
                 $scope.app.running = false;
+
                 //$scope.addNotification('info', 'INFO', 'Copied properties successfully. ');
             }).
             error(function (data, status, headers, config) {
+                $scope.error = data;
                 $scope.app.running = false;
                 //$scope.addNotification('error', 'ERROR', data);
             });

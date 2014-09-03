@@ -21,15 +21,11 @@
 package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 
+import com.adobe.acs.commons.content.properties.bulk.impl.NodeCollector;
+import com.adobe.acs.commons.content.properties.bulk.impl.ResultsUtil;
 import com.adobe.acs.commons.content.properties.bulk.impl.Status;
-import com.adobe.acs.commons.content.properties.bulk.impl.TraversalInclusionPolicy;
-import com.day.cq.search.PredicateGroup;
-import com.day.cq.search.Query;
-import com.day.cq.search.QueryBuilder;
-import com.day.cq.search.result.SearchResult;
 import com.day.jcr.vault.util.PathUtil;
 import org.apache.commons.lang.StringUtils;
-import org.apache.jackrabbit.commons.flat.TreeTraverser;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.Resource;
@@ -46,19 +42,15 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.Node;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
-import javax.jcr.query.QueryManager;
-import javax.jcr.query.QueryResult;
 import javax.jcr.security.AccessControlManager;
 import javax.jcr.security.Privilege;
 import javax.servlet.ServletException;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
+import java.util.*;
 
 abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
+    private static final Logger log = LoggerFactory.getLogger(AbstractBaseServlet.class);
+
     protected static final int DEFAULT_BATCH_SIZE = 1000;
 
     protected static final String REQUEST_PARAM_PARAMS = "params";
@@ -81,13 +73,12 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
 
     protected static final String KEY_PROPERTIES = "properties";
 
+    protected static final String KEY_PROPERTIES_OPERAND = "propertiesOperand";
+
     protected static final String VALUE_QUERY_MODE_CONSTRUCTED = "constructed";
 
     protected static final String VALUE_COLLECTION_MODE_TRAVERSAL = "traversal";
 
-    protected static final String KEY_PROPERTIES_OPERAND = "propertiesOperand";
-
-    private static final Logger log = LoggerFactory.getLogger(AbstractBaseServlet.class);
 
     @Override
     protected void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response)
@@ -205,10 +196,30 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
             // Set to JSON
             if (!dryRun) {
                 jsonResponse.put("total", total);
-                jsonResponse.put("count", count);
-                jsonResponse.put("successPaths", new JSONArray(successPaths));
-                jsonResponse.put("errorPaths", new JSONArray(errorPaths));
-                jsonResponse.put("noopPaths", new JSONArray(noopPaths));
+                jsonResponse.put("success", successPaths.size());
+                jsonResponse.put("error", errorPaths.size());
+                jsonResponse.put("noop", noopPaths.size());
+
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                PrintStream printStream = new PrintStream(baos);
+
+                for(final String path : successPaths) {
+                    printStream.println("SUCCESS," + path);
+                }
+
+                for(final String path : errorPaths) {
+                    printStream.println("ERROR," + path);
+                }
+
+                for(final String path : noopPaths) {
+                    printStream.println("NOOP," + path);
+                }
+
+                if(total > 0) {
+                    jsonResponse.put("file",
+                            ResultsUtil.storeResults(request.getResource(), new ByteArrayInputStream(baos.toByteArray())));
+                }
 
                 response.getWriter().print(jsonResponse.toString());
             }
@@ -222,6 +233,15 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
         }
     }
 
+    /**
+     * Gets the Node Iterator that represents the collections of nodes to apply the bulk property functions against.
+     *
+     * @param resourceResolver the resource resolver used to collect the nodes
+     * @param params the params used to construct the collection
+     * @param queryMode the way in which to collect the nodes
+     * @return a Node Iterator representing all the nodes to process
+     * @throws RepositoryException
+     */
     private Iterator<Node> getNodes(final ResourceResolver resourceResolver, final ValueMap params, final String queryMode) throws RepositoryException {
         if (StringUtils.equals(queryMode, VALUE_QUERY_MODE_CONSTRUCTED)) {
 
@@ -229,18 +249,31 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
 
             if (StringUtils.equals(collectionMode, VALUE_COLLECTION_MODE_TRAVERSAL)) {
                 log.trace("Executing constructed traversal");
-                return this.getNodesFromConstructedTraversal(resourceResolver, params);
+                return NodeCollector.getNodesFromConstructedTraversal(resourceResolver,
+                        params.get(KEY_SEARCH_PATH, "/dev/null"),
+                        params.get(KEY_NODE_TYPE, String.class),
+                        params.get(KEY_PROPERTIES_OPERAND, "OR"),
+                        params.get(KEY_PROPERTIES, ValueMap.class));
             } else {
                 log.trace("Executing constructed query");
-                return this.getNodesFromConstructedQuery(resourceResolver, params);
+                return NodeCollector.getNodesFromConstructedQuery(resourceResolver,
+                        params.get(KEY_SEARCH_PATH, "/dev/null"),
+                        params.get(KEY_NODE_TYPE, String.class),
+                        params.get(KEY_PROPERTIES, ValueMap.class));
             }
         } else {
             log.trace("Executing raw query");
-            return this.getNodesFromRawQuery(resourceResolver, params);
+            return NodeCollector.getNodesFromRawQuery(resourceResolver, params.get(KEY_QUERY, ""));
         }
     }
 
-
+    /**
+     * Converts the Request parameters into a normalized ValueMap.
+     *
+     * @param request the request object
+     * @return a ValueMap containing the normalized parameters
+     * @throws JSONException
+     */
     protected ValueMap getParams(SlingHttpServletRequest request) throws JSONException {
         final ValueMap params = new ValueMapDecorator(new HashMap<String, Object>());
 
@@ -300,73 +333,47 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
 
     }
 
-    protected final boolean canModifyProperties(Resource resource) throws RepositoryException {
+    /**
+     * Checks if the resource's properties are modifiable by the associated authenticated session
+     *
+     * @param resource the resource to modify
+     * @return true if the current session can modify the resource's properties
+     */
+    protected final boolean canModifyProperties(Resource resource) {
         final Session session = resource.getResourceResolver().adaptTo(Session.class);
-        final AccessControlManager accessControlManager = session.getAccessControlManager();
-        final Privilege modifyPropertiesPriviledge = accessControlManager.privilegeFromName(
-                Privilege.JCR_MODIFY_PROPERTIES);
+        final AccessControlManager accessControlManager;
+        try {
+            accessControlManager = session.getAccessControlManager();
 
-        return accessControlManager.hasPrivileges(resource.getPath(), new Privilege[]{ modifyPropertiesPriviledge });
-    }
+            final Privilege modifyPropertiesPriviledge = accessControlManager.privilegeFromName(
+                    Privilege.JCR_MODIFY_PROPERTIES);
 
+            return accessControlManager.hasPrivileges(resource.getPath(), new Privilege[]{modifyPropertiesPriviledge});
 
-    protected final Iterator<Node> getNodesFromRawQuery(final ResourceResolver resourceResolver,
-                                                        final ValueMap params) throws RepositoryException {
-
-        final Session session = resourceResolver.adaptTo(Session.class);
-        final QueryManager queryManager = session.getWorkspace().getQueryManager();
-        final javax.jcr.query.Query query = queryManager.createQuery(params.get(KEY_QUERY, String.class), "");
-        final QueryResult result = query.execute();
-
-        return result.getNodes();
-    }
-
-    protected final Iterator<Node> getNodesFromConstructedQuery(final ResourceResolver resourceResolver,
-                                                                final ValueMap params) {
-
-        final QueryBuilder queryBuilder = resourceResolver.adaptTo(QueryBuilder.class);
-        final Map<String, String> map = new HashMap<String, String>();
-
-        map.put("path", params.get(KEY_SEARCH_PATH, ""));
-        map.put("type", params.get(KEY_NODE_TYPE, ""));
-
-        final ValueMap properties = params.get(KEY_PROPERTIES, ValueMap.EMPTY);
-
-        if (properties != null) {
-
-            int i = 1;
-            for (final String key : properties.keySet()) {
-                map.put(i + "_property", key);
-                map.put(i + "_property.value", properties.get(key, String.class));
-            }
+        } catch (RepositoryException e) {
+            log.error("Repository error occurred while checking access permissions on: {}", resource.getPath());
+            log.error(e.getMessage());
         }
 
-        map.put("p.limit", "-1");
-
-        final Query query = queryBuilder.createQuery(PredicateGroup.create(map),
-                resourceResolver.adaptTo(Session.class));
-        final SearchResult queryResult = query.getResult();
-
-        return queryResult.getNodes();
+        return false;
     }
 
-
-    protected final Iterator<Node> getNodesFromConstructedTraversal(final ResourceResolver resourceResolver,
-                                                                    final ValueMap params) {
-
-        final Resource root = resourceResolver.getResource(params.get(KEY_SEARCH_PATH, String.class));
-        final String nodeType = params.get(KEY_NODE_TYPE, String.class);
-        final ValueMap properties = params.get(KEY_PROPERTIES, ValueMap.EMPTY);
-        final TraversalInclusionPolicy.Operand operand = TraversalInclusionPolicy.Operand.valueOf(
-                StringUtils.upperCase(params.get(KEY_PROPERTIES_OPERAND, "OR")));
-
-        return TreeTraverser.nodeIterator(root.adaptTo(Node.class), TreeTraverser.ErrorHandler.IGNORE,
-                new TraversalInclusionPolicy(resourceResolver, nodeType, operand, properties));
-    }
-
-
+    /**
+     * Abstract method used to get function-specific parameters
+     *
+     * @param json the JSON object of request params
+     * @return a Map of the relevant parameters
+     * @throws JSONException
+     */
     abstract Map<String, Object> getParams(JSONObject json) throws JSONException;
 
+    /**
+     * Abstract method used to process function-specific behaviors.
+     *
+     * @param resource the resource whose properties will be effected
+     * @param params function-specific parameters
+     * @return a Status indicating what happened while processing this resource
+     */
     abstract Status execute(Resource resource, ValueMap params);
 
 }
