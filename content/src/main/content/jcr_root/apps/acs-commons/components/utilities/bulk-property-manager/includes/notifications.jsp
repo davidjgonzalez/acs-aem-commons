@@ -18,12 +18,14 @@
   ~ #L%
   --%>
 
-<div ng-show="results">
-    <ul>
-        <li>Total: {{ total }}</li>
-        <li>Success: {{ success }}</li>
-        <li>Error: {{ error }}</li>
-        <li>Noop: {{ noop }}</li>
-        <li><a href="{{ file }}">Download CSV</a></li>
-    </ul>
+<div class="notifications" ng-show="notifications.length > 0">
+    <div ng-repeat="notification in notifications">
+        <div class="alert large {{ notification.type }}">
+            <button class="close" data-dismiss="alert">&times;</button>
+            <strong>{{ notification.title }}</strong>
+
+            <div>{{ notification.message }}</div>
+        </div>
+    </div>
 </div>
+

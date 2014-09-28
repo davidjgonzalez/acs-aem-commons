@@ -20,26 +20,28 @@
 
 /*global angular: false, JSON: false, bulkPropertyManagerApp: false */
 
-bulkPropertyManagerApp.controller('RemoveCtrl', function ($scope, $http, $timeout) {
+bulkPropertyManagerApp.controller('RemoveCtrl', function ($scope, $rootScope, $http, $timeout) {
 
-    $scope.remove = function () {
+    $scope.remove = function (dryRun) {
         $scope.app.running = true;
+
+        $scope.form.dryRun = dryRun;
 
         $http({
             method: 'POST',
             url: encodeURI($scope.app.resource + '.remove.json'),
-            data: 'params=' + JSON.stringify($scope.form),
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+            data: 'params=' + JSON.stringify($scope.form)
         }).
             success(function (data, status, headers, config) {
                 $scope.result = data;
                 $scope.app.running = false;
-                //$scope.addNotification('info', 'INFO', 'Copied properties successfully. ');
+                $rootScope.$broadcast("refreshResults", {});
+                $scope.addNotification('success', 'SUCCESS', 'Removed properties successfully. ');
             }).
             error(function (data, status, headers, config) {
                 $scope.app.running = false;
                 $scope.error = data;
-                //$scope.addNotification('error', 'ERROR', data);
+                $scope.addNotification('error', 'ERROR', data);
             });
 
     };

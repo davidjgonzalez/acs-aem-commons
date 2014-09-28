@@ -18,8 +18,8 @@
   ~ #L%
   --%>
 
-<div ng-controller="FindAndReplaceCtrl"
-     ng-show="form.mode === 'find-and-replace'">
+<div ng-controller="MoveCtrl"
+     ng-show="form.mode === 'move'">
 
     <div class="form-row">
         <h4>From Property</h4>
@@ -27,8 +27,8 @@
         <span>
             <input type="text"
                    ng-required="true"
-                   ng-model="form.findAndReplace.find"
-                   placeholder="The value to find"/>
+                   ng-model="form.move.src"
+                   placeholder="The property to copy the value from"/>
         </span>
     </div>
 
@@ -38,17 +38,18 @@
         <span>
             <input type="text"
                    ng-required="true"
-                   ng-model="form.findAndReplace.replace"
-                   placeholder="The replacement string"/>
+                   ng-model="form.move.dest"
+                   placeholder="The property to copy the value to"/>
         </span>
     </div>
 
     <div class="form-row">
         <div class="form-left-cell">&nbsp;</div>
 
-        <cq:include script="dry-run.jsp"/>
+        <button ng-click="move(true)"
+                class="submit-button">Dry Run</button>
 
-        <button ng-click="findAndReplace()"
-                class="submit-button primary">Find &amp; Replace</button>
+        <button ng-click="move(false)"
+                class="submit-button primary">Move Property</button>
     </div>
 </div>

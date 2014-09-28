@@ -103,7 +103,7 @@ public class TraversalInclusionPolicy implements TreeTraverser.InclusionPolicy<N
             }
 
         } catch (RepositoryException e) {
-            log.error("Could not include node");
+            log.error("Could not include node during traversal", e);
             return false;
         }
     }

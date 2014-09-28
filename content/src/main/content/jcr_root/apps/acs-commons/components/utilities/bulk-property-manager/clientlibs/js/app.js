@@ -24,6 +24,8 @@ var bulkPropertyManagerApp = angular.module('bulkPropertyManagerApp', []);
 
 bulkPropertyManagerApp.controller('MainCtrl', function ($scope, $http, $timeout) {
 
+    $http.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded;charset=utf-8';
+
     $scope.app = {
         resource: '',
         running: false
@@ -47,6 +49,29 @@ bulkPropertyManagerApp.controller('MainCtrl', function ($scope, $http, $timeout)
         move: {},
         findAndReplace: {}
     };
+
+    $scope.results = [];
+    $scope.dryRunResults = [];
+
+
+    $scope.addNotification = function (type, title, message) {
+        var timeout = 30000;
+
+        if(type === 'success')  {
+            timeout = timeout / 2;
+        }
+
+        $scope.notifications.push({
+            type: type,
+            title: title,
+            message: message
+        });
+
+        $timeout(function() {
+            $scope.notifications.shift();
+        }, timeout);
+    };
+
 });
 
 

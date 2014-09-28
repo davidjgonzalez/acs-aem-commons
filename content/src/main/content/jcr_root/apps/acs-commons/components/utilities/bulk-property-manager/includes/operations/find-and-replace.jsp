@@ -18,28 +18,38 @@
   ~ #L%
   --%>
 
-<div ng-controller="RemoveCtrl"
-     ng-show="form.mode === 'remove'">
+<div ng-controller="FindAndReplaceCtrl"
+     ng-show="form.mode === 'find-and-replace'">
 
     <div class="form-row">
-        <h4>Property Name</h4>
+        <h4>Find</h4>
 
         <span>
             <input type="text"
                    ng-required="true"
-                   ng-model="form.remove.name"
-                   placeholder="The property to remove"/>
+                   ng-model="form.findAndReplace.find"
+                   placeholder="The value to find"/>
+        </span>
+    </div>
+
+    <div class="form-row">
+        <h4>Replace</h4>
+
+        <span>
+            <input type="text"
+                   ng-required="true"
+                   ng-model="form.findAndReplace.replace"
+                   placeholder="The replacement string"/>
         </span>
     </div>
 
     <div class="form-row">
         <div class="form-left-cell">&nbsp;</div>
 
-        <span>
-            <cq:include script="dry-run.jsp"/>
+        <button ng-click="findAndReplace(true)"
+                class="submit-button">Dry Run</button>
 
-            <button ng-click="remove()"
-                    class="submit-button primary">Delete Property</button>
-        </span>
+        <button ng-click="findAndReplace(false)"
+                class="submit-button primary">Find &amp; Replace</button>
     </div>
 </div>

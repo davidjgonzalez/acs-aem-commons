@@ -72,9 +72,10 @@
     <div class="form-row">
         <div class="form-left-cell">&nbsp;</div>
 
-        <cq:include script="dry-run.jsp"/>
+        <button ng-click="add(true)"
+                class="submit-button">Dry Run</button>
 
-        <button ng-click="add()"
+        <button ng-click="add(false)"
                 class="submit-button primary">Add Property</button>
     </div>
 </div>

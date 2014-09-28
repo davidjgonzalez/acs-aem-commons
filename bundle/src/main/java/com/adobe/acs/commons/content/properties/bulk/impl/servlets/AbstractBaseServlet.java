@@ -22,10 +22,11 @@ package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 
 import com.adobe.acs.commons.content.properties.bulk.impl.NodeCollector;
+import com.adobe.acs.commons.content.properties.bulk.impl.Result;
 import com.adobe.acs.commons.content.properties.bulk.impl.ResultsUtil;
-import com.adobe.acs.commons.content.properties.bulk.impl.Status;
-import com.day.jcr.vault.util.PathUtil;
+import com.day.text.Text;
 import org.apache.commons.lang.StringUtils;
+import org.apache.jackrabbit.JcrConstants;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.Resource;
@@ -45,8 +46,12 @@ import javax.jcr.Session;
 import javax.jcr.security.AccessControlManager;
 import javax.jcr.security.Privilege;
 import javax.servlet.ServletException;
-import java.io.*;
-import java.util.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
     private static final Logger log = LoggerFactory.getLogger(AbstractBaseServlet.class);
@@ -79,6 +84,26 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
 
     protected static final String VALUE_COLLECTION_MODE_TRAVERSAL = "traversal";
 
+    protected static final String KEY_OPERATION = "operation";
+
+    /**
+     * Abstract method used to get operation-specific parameters
+     *
+     * @param json the JSON object of request params
+     * @return a Map of the relevant parameters
+     * @throws JSONException
+     */
+    abstract Map<String, Object> getParams(JSONObject json) throws JSONException;
+
+    /**
+     * Abstract method used to process operation-specific behaviors.
+     *
+     * @param resource the resource whose properties will be effected
+     * @param params function-specific parameters
+     * @return a Status indicating what happened while processing this resource
+     */
+    abstract Result execute(Resource resource, ValueMap params);
+
 
     @Override
     protected void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response)
@@ -101,32 +126,20 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
             final int batchSize = params.get(KEY_BATCH_SIZE, DEFAULT_BATCH_SIZE);
 
             /* Get Qualifying Nodes */
-
             final Iterator<Node> nodes = getNodes(resourceResolver, params, queryMode);
 
             /* Response Headers */
+            response.setHeader("Content-Type", "application/json");
 
-            if (dryRun) {
-                response.setHeader("Content-Type", "text/csv");
-            } else {
-                response.setHeader("Content-Type", "application/json");
-            }
 
             /* Process */
-
-            final JSONObject jsonResponse = new JSONObject();
-
+            final Resource resultResource = ResultsUtil.getResultResource(request.getResource(), dryRun);
             final Session session = resourceResolver.adaptTo(Session.class);
+            final List<Result> results = new ArrayList<Result>();
+            List<Result> batch = new ArrayList<Result>();
 
-            final List<String> successPaths = new ArrayList<String>();
-            final List<String> noopPaths = new ArrayList<String>();
-            final List<String> errorPaths = new ArrayList<String>();
-            List<String> batchSuccessPaths = new ArrayList<String>();
-
-            int total = 0;
             int count = 0;
             while (nodes.hasNext()) {
-                total++;
                 final Resource foundResource = resourceResolver.getResource(nodes.next().getPath());
                 Resource resource = foundResource;
 
@@ -138,13 +151,8 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
                     if (relativeResource != null) {
                         resource = relativeResource;
                     } else {
-                        if (dryRun) {
-                            response.getWriter().println(Status.RELATIVE_PATH_NOT_FOUND.toString() + "," + resource.getPath());
-                        } else {
-                            errorPaths.add(PathUtil.makePath(foundResource.getPath(), relativePath));
-                            log.warn("Could not find relative resource at [ {} ] ~> [ {} ]", foundResource.getPath(),
-                                    relativePath);
-                        }
+                        results.add(new Result(Result.Status.RELATIVE_PATH_NOT_FOUND,
+                                Text.makeCanonicalPath(foundResource.getPath() + "/" + relativePath)));
 
                         // Could not find a relative resource; so skip and move on
                         continue;
@@ -152,85 +160,62 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
                 }
 
                 // Resource processing
+                final Result result = execute(resource, params);
 
-                if (dryRun) {
-                    final Status status = execute(resource, params);
-                    response.getWriter().println(status.toString() + "," + resource.getPath());
+                if (Result.Status.SUCCESS.equals(result.getStatus())) {
+                    batch.add(result);
+                    count++;
                 } else {
-                    final Status status = execute(resource, params);
-
-                    if (Status.SUCCESS.equals(status)) {
-                        // Success
-                        batchSuccessPaths.add(resource.getPath());
-                        count++;
-                    } else if (Status.ERROR.equals(status)
-                            || Status.ACCESS_ERROR.equals(status)) {
-                        // Errors
-                        errorPaths.add(resource.getPath());
-                    } else if (Status.NOOP.equals(status)) {
-                        // No-op
-                        noopPaths.add(resource.getPath());
-                    }
-
-                    if (count != 0 && count % batchSize == 0) {
-                        long start = System.currentTimeMillis();
-                        session.save();
-                        log.info("Saved batch of [ {} ] copy/move property changes in {} ms", batchSize,
-                                System.currentTimeMillis() - start);
-
-                        successPaths.addAll(batchSuccessPaths);
-                        batchSuccessPaths = new ArrayList<String>();
-                    }
+                    // Always store ERRORs and NOOps immediately
+                    results.add(result);
                 }
+
+                batch = saveChanges(batchSize, session, results, batch, count, false);
             }
 
-            if (!dryRun && (count % batchSize != 0)) {
-                long start = System.currentTimeMillis();
-                session.save();
-                log.info("Saved batch of [ {} ] copy/move property changes in {} ms", count % batchSize,
-                        System.currentTimeMillis() - start);
-
-                successPaths.addAll(batchSuccessPaths);
-            }
+            saveChanges(batchSize, session, results, batch, count, true);
 
             // Set to JSON
-            if (!dryRun) {
-                jsonResponse.put("total", total);
-                jsonResponse.put("success", successPaths.size());
-                jsonResponse.put("error", errorPaths.size());
-                jsonResponse.put("noop", noopPaths.size());
+            ResultsUtil.createResults(results, params, resultResource);
+        } catch (JSONException e) {
+            log.error("JSON Exception", e);
+            response.setStatus(SlingHttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().print("Error getting params");
+        } catch (Exception e) {
+            log.error("An error occurred", e);
+            response.setStatus(SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.getWriter().print("Could not process " + e.getMessage());
+        }
+    }
 
-
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                PrintStream printStream = new PrintStream(baos);
-
-                for(final String path : successPaths) {
-                    printStream.println("SUCCESS," + path);
-                }
-
-                for(final String path : errorPaths) {
-                    printStream.println("ERROR," + path);
-                }
-
-                for(final String path : noopPaths) {
-                    printStream.println("NOOP," + path);
-                }
-
-                if(total > 0) {
-                    jsonResponse.put("file",
-                            ResultsUtil.storeResults(request.getResource(), new ByteArrayInputStream(baos.toByteArray())));
-                }
-
-                response.getWriter().print(jsonResponse.toString());
+    /**
+     * Persists the changes to the repository
+     *
+     * @param batchSize
+     * @param session
+     * @param results
+     * @param batch
+     * @param count
+     * @param force
+     * @return
+     */
+    private List<Result> saveChanges(final int batchSize, final Session session, final List<Result> results,
+                                     List<Result> batch, final int count, boolean force) {
+        if (force || (count != 0 && count % batchSize == 0)) {
+            long start = System.currentTimeMillis();
+            try {
+                session.save();
+                log.info("Saved batch of [ {} ] property change operation in {} ms", batchSize,
+                        System.currentTimeMillis() - start);
+                results.addAll(batch);
+            } catch(Exception e) {
+                // Record batch as SAVE_ERROR
+                results.addAll(ResultsUtil.convertToStatus(batch, Result.Status.ERROR));
             }
 
-        } catch (JSONException e) {
-            log.error(e.getMessage());
-            response.sendError(SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error getting params");
-        } catch (Exception e) {
-            log.error(e.getMessage());
-            response.sendError(SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not process");
+            batch = new ArrayList<Result>();
         }
+        return batch;
     }
 
     /**
@@ -279,7 +264,7 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
 
         final JSONObject jsonParams = new JSONObject(request.getParameter(REQUEST_PARAM_PARAMS));
 
-        params.put(KEY_DRY_RUN, jsonParams.optBoolean(KEY_DRY_RUN));
+        params.put(KEY_DRY_RUN, jsonParams.optBoolean(KEY_DRY_RUN, true));
         params.put(KEY_BATCH_SIZE, jsonParams.optInt(KEY_BATCH_SIZE, DEFAULT_BATCH_SIZE));
 
         params.put(KEY_QUERY_MODE, jsonParams.optString(KEY_QUERY_MODE, VALUE_QUERY_MODE_CONSTRUCTED));
@@ -297,9 +282,7 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
                 }
             }
 
-            if (StringUtils.isNotBlank(constructed.optString(KEY_NODE_TYPE))) {
-                params.put(KEY_NODE_TYPE, constructed.optString(KEY_NODE_TYPE));
-            }
+            params.put(KEY_NODE_TYPE, constructed.optString(KEY_NODE_TYPE, JcrConstants.NT_UNSTRUCTURED));
 
             params.put(KEY_SEARCH_PATH, constructed.getString(KEY_SEARCH_PATH));
 
@@ -330,7 +313,6 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
         }
 
         return params;
-
     }
 
     /**
@@ -340,6 +322,17 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
      * @return true if the current session can modify the resource's properties
      */
     protected final boolean canModifyProperties(Resource resource) {
+        final Node node = resource.adaptTo(Node.class);
+        try {
+            if(!node.isCheckedOut()) {
+                log.info("Resource [ {} ] is checked in, and cannot be modified", resource.getPath());
+                return false;
+            }
+        } catch (RepositoryException e) {
+            log.error("Repository error while checking checked out state", e);
+            return false;
+        }
+
         final Session session = resource.getResourceResolver().adaptTo(Session.class);
         final AccessControlManager accessControlManager;
         try {
@@ -351,29 +344,10 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
             return accessControlManager.hasPrivileges(resource.getPath(), new Privilege[]{modifyPropertiesPriviledge});
 
         } catch (RepositoryException e) {
-            log.error("Repository error occurred while checking access permissions on: {}", resource.getPath());
-            log.error(e.getMessage());
+            log.error("Repository error occurred while checking access permissions on [ {} ].",
+                    resource.getPath(), e);
         }
 
         return false;
     }
-
-    /**
-     * Abstract method used to get function-specific parameters
-     *
-     * @param json the JSON object of request params
-     * @return a Map of the relevant parameters
-     * @throws JSONException
-     */
-    abstract Map<String, Object> getParams(JSONObject json) throws JSONException;
-
-    /**
-     * Abstract method used to process function-specific behaviors.
-     *
-     * @param resource the resource whose properties will be effected
-     * @param params function-specific parameters
-     * @return a Status indicating what happened while processing this resource
-     */
-    abstract Status execute(Resource resource, ValueMap params);
-
 }

@@ -21,7 +21,7 @@
 package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 
-import com.adobe.acs.commons.content.properties.bulk.impl.Status;
+import com.adobe.acs.commons.content.properties.bulk.impl.Result;
 import com.adobe.acs.commons.util.TypeUtil;
 import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
@@ -46,11 +46,12 @@ import java.util.Map;
         extensions = "json"
 )
 public class AddPropertyServlet extends AbstractBaseServlet {
+    private static final Logger log = LoggerFactory.getLogger(AddPropertyServlet.class);
+
     public static final String TYPE = "add";
     public static final String PROPERTY_NAME = "name";
     public static final String PROPERTY_VALUE = "value";
     public static final String OVERWRITE = "overwrite";
-    private static final Logger log = LoggerFactory.getLogger(AddPropertyServlet.class);
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
@@ -58,6 +59,7 @@ public class AddPropertyServlet extends AbstractBaseServlet {
 
         json = json.getJSONObject(AddPropertyServlet.TYPE);
 
+        map.put(KEY_OPERATION, TYPE);
         map.put(PROPERTY_NAME, json.getString("name"));
         map.put(OVERWRITE, json.optBoolean("overwrite", false));
 
@@ -70,23 +72,23 @@ public class AddPropertyServlet extends AbstractBaseServlet {
     }
 
     @Override
-    Status execute(final Resource resource, final ValueMap params) {
+    Result execute(final Resource resource, final ValueMap params) {
         final String propertyName = params.get(PROPERTY_NAME, String.class);
         final boolean overwrite = params.get(OVERWRITE, false);
 
         final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
 
-        if (StringUtils.isNotBlank(propertyName)
+        if (mvm != null && StringUtils.isNotBlank(propertyName)
                 && (!mvm.keySet().contains(propertyName) || overwrite)) {
 
             if (canModifyProperties(resource)) {
                 mvm.put(propertyName, params.get(PROPERTY_VALUE));
-                return Status.SUCCESS;
+                return new Result(Result.Status.SUCCESS, resource.getPath());
             } else {
-                return Status.ACCESS_ERROR;
+                return new Result(Result.Status.ACCESS_ERROR, resource.getPath());
             }
         } else {
-            return Status.NOOP;
+            return new Result(Result.Status.NOOP, resource.getPath());
         }
     }
 

@@ -18,37 +18,29 @@
   ~ #L%
   --%>
 
-<div ng-controller="MoveCtrl"
-     ng-show="form.mode === 'move'">
+<div ng-controller="RemoveCtrl"
+     ng-show="form.mode === 'remove'">
 
     <div class="form-row">
-        <h4>From Property</h4>
+        <h4>Property Name</h4>
 
         <span>
             <input type="text"
                    ng-required="true"
-                   ng-model="form.move.src"
-                   placeholder="The property to copy the value from"/>
-        </span>
-    </div>
-
-    <div class="form-row">
-        <h4>To Property</h4>
-
-        <span>
-            <input type="text"
-                   ng-required="true"
-                   ng-model="form.move.dest"
-                   placeholder="The property to copy the value to"/>
+                   ng-model="form.remove.name"
+                   placeholder="The property to remove"/>
         </span>
     </div>
 
     <div class="form-row">
         <div class="form-left-cell">&nbsp;</div>
 
-        <cq:include script="dry-run.jsp"/>
+        <span>
+        <button ng-click="remove(true)"
+                class="submit-button">Dry Run</button>
 
-        <button ng-click="move()"
-                class="submit-button primary">Move Property</button>
+            <button ng-click="remove(false)"
+                    class="submit-button primary">Delete Property</button>
+        </span>
     </div>
 </div>

@@ -10,6 +10,8 @@ import org.apache.jackrabbit.commons.flat.TreeTraverser;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jcr.Node;
 import javax.jcr.RepositoryException;
@@ -21,6 +23,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class NodeCollector {
+    private static final Logger log = LoggerFactory.getLogger(NodeCollector.class);
 
     public static final Iterator<Node> getNodesFromRawQuery(final ResourceResolver resourceResolver,
                                                             final String expression) throws RepositoryException {
@@ -29,6 +32,8 @@ public class NodeCollector {
         final QueryManager queryManager = session.getWorkspace().getQueryManager();
         final javax.jcr.query.Query query = queryManager.createQuery(expression, "JCR-SQL2");
         final QueryResult result = query.execute();
+
+        log.debug("Raw Query: {}", expression);
 
         return result.getNodes();
     }
@@ -57,6 +62,8 @@ public class NodeCollector {
         final Query query = queryBuilder.createQuery(PredicateGroup.create(map),
                 resourceResolver.adaptTo(Session.class));
         final SearchResult queryResult = query.getResult();
+
+        log.debug("Constructed Query: {}", queryResult.getQueryStatement());
 
         return queryResult.getNodes();
     }

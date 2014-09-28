@@ -20,7 +20,7 @@
 
 package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
-import com.adobe.acs.commons.content.properties.bulk.impl.Status;
+import com.adobe.acs.commons.content.properties.bulk.impl.Result;
 import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.resource.ModifiableValueMap;
@@ -44,17 +44,19 @@ import java.util.Map;
         extensions = "json"
 )
 public class FindAndReplaceServlet extends AbstractBaseServlet {
+    private static final Logger log = LoggerFactory.getLogger(FindAndReplaceServlet.class);
+
     public static final String TYPE = "find-and-replace";
     public static final String SEARCH_STRING = "searchString";
     public static final String REPLACE_STRING = "replaceString";
-    private static final Logger log = LoggerFactory.getLogger(FindAndReplaceServlet.class);
 
     @Override
     Map<String, Object> getParams(JSONObject json) throws JSONException {
         final Map<String, Object> map = new HashMap<String, Object>();
 
-        json = json.getJSONObject(AddPropertyServlet.TYPE);
+        json = json.getJSONObject("findAndReplace");
 
+        map.put(KEY_OPERATION, FindAndReplaceServlet.TYPE);
         map.put(SEARCH_STRING, json.getString("find"));
         map.put(REPLACE_STRING, json.getString("replace"));
 
@@ -62,13 +64,17 @@ public class FindAndReplaceServlet extends AbstractBaseServlet {
     }
 
     @Override
-    Status execute(final Resource resource, final ValueMap params) {
+    Result execute(final Resource resource, final ValueMap params) {
 
         final String searchString = params.get(SEARCH_STRING, String.class);
         final String replaceString = params.get(REPLACE_STRING, String.class);
 
         boolean dirty = false;
         final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
+
+        if(mvm == null) {
+            return new Result(Result.Status.NOOP, resource.getPath());
+        }
 
         for (final Map.Entry<String, Object> entry : mvm.entrySet()) {
 
@@ -84,7 +90,7 @@ public class FindAndReplaceServlet extends AbstractBaseServlet {
                         mvm.put(entry.getKey(), newValue);
                         dirty = true;
                     } else {
-                        return Status.ACCESS_ERROR;
+                        return new Result(Result.Status.ACCESS_ERROR, resource.getPath());
                     }
                 }
 
@@ -114,7 +120,7 @@ public class FindAndReplaceServlet extends AbstractBaseServlet {
                         mvm.put(entry.getKey(), values);
                         dirty = true;
                     } else {
-                        return Status.ACCESS_ERROR;
+                        return new Result(Result.Status.ACCESS_ERROR, resource.getPath());
                     }
                 }
 
@@ -123,9 +129,9 @@ public class FindAndReplaceServlet extends AbstractBaseServlet {
         } // End for loop over each property on matching node
 
         if (dirty) {
-            return Status.SUCCESS;
+            return new Result(Result.Status.SUCCESS, resource.getPath());
         } else {
-            return Status.NOOP;
+            return new Result(Result.Status.NOOP, resource.getPath());
         }
     }
 }

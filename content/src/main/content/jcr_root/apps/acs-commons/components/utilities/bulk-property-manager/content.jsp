@@ -33,68 +33,69 @@
     <p></p>
     <cq:include script="includes/notifications.jsp"/>
 
-    <div class="form">
 
-        <div class="form-row">
-            <h4>Query Mode</h4>
+    <div class="tabs nav" data-init="tabs">
+        <nav>
+            <a href="#" data-toggle="tab" class="active">Find &amp; Replace</a>
+            <a href="#" data-toggle="tab">Dry Run Results</a>
+            <a href="#" data-toggle="tab">Results</a>
+        </nav>
 
-            <span>
-                <div class="selector">
-                    <label><input
-                            ng-model="form.queryMode"
-                            value="constructed"
-                            type="radio"><span>Constructed Query</span></label>
-                    <label><input
-                            ng-model="form.queryMode"
-                            value="raw"
-                            type="radio"><span>Raw Query</span></label>
+        <section class="active">
+            <div class="form">
+
+                <div class="form-row">
+                    <h4>Query Mode</h4>
+
+                    <span>
+                        <div class="selector">
+                            <label><input
+                                    ng-model="form.queryMode"
+                                    value="constructed"
+                                    type="radio"><span>Constructed Query</span></label>
+                            <label><input
+                                    ng-model="form.queryMode"
+                                    value="raw"
+                                    type="radio"><span>Raw Query</span></label>
+                        </div>
+                    </span>
                 </div>
-            </span>
-        </div>
 
-        <cq:include script="includes/collection-raw.jsp"/>
-        <cq:include script="includes/collection-constructed.jsp"/>
+                <cq:include script="includes/collection/raw.jsp"/>
+                <cq:include script="includes/collection/constructed.jsp"/>
 
-        <div class="form-row">
-            <h4>Mode</h4>
+                <div class="form-row">
+                    <h4>Mode</h4>
 
-            <span>
-                <select
-                        ng-required="true"
-                        ng-model="form.mode">
-                    <option value="">Select</option>
-                    <option value="add">Add</option>
-                    <option value="remove">Remove</option>
-                    <option value="copy">Copy</option>
-                    <option value="move">Move</option>
-                    <option value="find-and-replace">Find &amp; Replace</option>
-                </select>
-            </span>
-        </div>
+                    <span>
+                        <select
+                                ng-required="true"
+                                ng-model="form.mode">
+                            <option value="">Select</option>
+                            <option value="add">Add</option>
+                            <option value="remove">Remove</option>
+                            <option value="copy">Copy</option>
+                            <option value="move">Move</option>
+                            <option value="find-and-replace">Find &amp; Replace</option>
+                        </select>
+                    </span>
+                </div>
 
-        <cq:include script="includes/add.jsp"/>
-        <cq:include script="includes/copy.jsp"/>
-        <cq:include script="includes/remove.jsp"/>
-        <cq:include script="includes/move.jsp"/>
-        <cq:include script="includes/find-and-replace.jsp"/>
+                <cq:include script="includes/operations/add.jsp"/>
+                <cq:include script="includes/operations/copy.jsp"/>
+                <cq:include script="includes/operations/remove.jsp"/>
+                <cq:include script="includes/operations/move.jsp"/>
+                <cq:include script="includes/operations/find-and-replace.jsp"/>
+            </div>
+
+        </section>
+        <section>
+            <cq:include script="includes/results/dry-run-results.jsp"/>
+        </section>
+        <section>
+            <cq:include script="includes/results/results.jsp"/>
+        </section>
     </div>
-
-    <form ng-show="!form.mode"
-          method="post"
-          action="${resource.path}/bulk-property-dry-run.csv">
-
-        <div class="form-row">
-            <div class="form-left-cell">&nbsp;</div>
-            <span>
-                <input type="hidden"
-                       name="params"
-                       value="{{ form }}"/>
-
-                <button type="submit"
-                        class="submit-button">Dry Run</button>
-            </span>
-        </div>
-    </form>
 
 </div>
 

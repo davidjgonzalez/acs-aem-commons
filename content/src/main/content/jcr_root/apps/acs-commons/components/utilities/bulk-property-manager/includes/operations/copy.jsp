@@ -46,9 +46,10 @@
     <div class="form-row">
         <div class="form-left-cell">&nbsp;</div>
 
-        <cq:include script="dry-run.jsp"/>
+        <button ng-click="copy(true)"
+                class="submit-button">Dry Run</button>
 
-        <button ng-click="copy()"
+        <button ng-click="copy(false)"
                 class="submit-button primary">Copy Property</button>
     </div>
 </div>

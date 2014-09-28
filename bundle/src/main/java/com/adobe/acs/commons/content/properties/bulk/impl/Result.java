@@ -18,20 +18,36 @@
  * #L%
  */
 
-/*global angular: false, JSON: false, bulkPropertyManagerApp: false */
+package com.adobe.acs.commons.content.properties.bulk.impl;
 
-bulkPropertyManagerApp.controller('DownloadsCtrl', function ($scope, $http, $timeout) {
+public class Result {
 
-    $scope.downloads = function () {
+    public enum Status {
+        SUCCESS,
+        ACCESS_ERROR,
+        RELATIVE_PATH_NOT_FOUND,
+        ERROR,
+        NOOP
+    }
 
-        $http({
-            method: 'GET',
-            url: encodeURI($scope.app.resource + '/downloads.json?t=' + new Date().getTime()),
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-        }).
-            success(function (data, status, headers, config) {
-                $scope.downloads = data;
-            });
-    };
+    private final Status status;
 
-});
+    private final String path;
+
+    public Result(Status status, String path) {
+        this.status = status;
+        this.path = path;
+    }
+
+    public Status getStatus() {
+        return this.status;
+    }
+
+    public String getPath() {
+        return this.path;
+    }
+
+    public String toString() {
+        return this.getStatus() + "," + this.getPath();
+    }
+}

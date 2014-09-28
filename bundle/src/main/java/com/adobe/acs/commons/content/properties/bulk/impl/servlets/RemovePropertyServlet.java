@@ -21,7 +21,7 @@
 package com.adobe.acs.commons.content.properties.bulk.impl.servlets;
 
 
-import com.adobe.acs.commons.content.properties.bulk.impl.Status;
+import com.adobe.acs.commons.content.properties.bulk.impl.Result;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
@@ -53,26 +53,28 @@ public class RemovePropertyServlet extends AbstractBaseServlet {
 
         json = json.getJSONObject(TYPE);
 
+        map.put(KEY_OPERATION, TYPE);
         map.put(PROPERTY_NAME, json.getString("name"));
 
         return map;
     }
 
     @Override
-    Status execute(final Resource resource, final ValueMap params) {
+    Result execute(final Resource resource, final ValueMap params) {
         final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
 
         final String propertyName = params.get(PROPERTY_NAME, "");
 
-        if (mvm.keySet().contains(propertyName)) {
+        if (mvm != null && mvm.keySet().contains(propertyName)) {
             if (canModifyProperties(resource)) {
                 mvm.remove(propertyName);
-                return Status.SUCCESS;
+                return new Result(Result.Status.SUCCESS, resource.getPath());
             } else {
-                return Status.ACCESS_ERROR;
+                return new Result(Result.Status.ACCESS_ERROR, resource.getPath());
             }
         } else {
-            return Status.NOOP;
+            return new Result(Result.Status.NOOP, resource.getPath());
         }
+
     }
 }
