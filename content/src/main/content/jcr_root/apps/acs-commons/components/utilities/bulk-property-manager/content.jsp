@@ -36,7 +36,7 @@
 
     <div class="tabs nav" data-init="tabs">
         <nav>
-            <a href="#" data-toggle="tab" class="active">Find &amp; Replace</a>
+            <a href="#" data-toggle="tab" class="active">Bulk Property Management</a>
             <a href="#" data-toggle="tab">Dry Run Results</a>
             <a href="#" data-toggle="tab">Results</a>
         </nav>

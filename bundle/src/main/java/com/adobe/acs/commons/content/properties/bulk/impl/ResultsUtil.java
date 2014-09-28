@@ -79,6 +79,8 @@ public class ResultsUtil {
         Node parent = resource.adaptTo(Node.class);
         parent = JcrUtils.getOrCreateUniqueByPath(parent, nodeName, JcrConstants.NT_UNSTRUCTURED);
 
+        resultProperties.put("fileSize", baos.size());
+
         addResultProperties(resource.getResourceResolver(), resultProperties, parent);
 
         final Node file = JcrUtils.putFile(parent,

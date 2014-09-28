@@ -180,11 +180,12 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
         } catch (JSONException e) {
             log.error("JSON Exception", e);
             response.setStatus(SlingHttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().print("Error getting params");
+            response.getWriter().print("Missing or invalid parameters. Please ensure the form is filled out " +
+                    "completely and correctly.");
         } catch (Exception e) {
             log.error("An error occurred", e);
             response.setStatus(SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().print("Could not process " + e.getMessage());
+            response.getWriter().print(e.getMessage());
         }
     }
 

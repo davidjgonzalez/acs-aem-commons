@@ -36,7 +36,7 @@ bulkPropertyManagerApp.controller('AddCtrl', function ($scope, $rootScope, $http
                 $scope.result = data;
                 $scope.app.running = false;
                 $rootScope.$broadcast("refreshResults", {});
-                $scope.addNotification('success', 'SUCCESS', 'Added properties successfully. ');
+                $scope.addNotification('success', 'SUCCESS', 'Added property successfully. ');
             }).
             error(function (data, status, headers, config) {
                 $scope.app.running = false;
