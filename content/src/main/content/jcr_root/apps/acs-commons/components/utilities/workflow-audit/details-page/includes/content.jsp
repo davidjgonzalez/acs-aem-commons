@@ -20,8 +20,7 @@
 %><%@page session="false"
           import="org.apache.sling.api.resource.Resource,
                  org.apache.sling.api.resource.ValueMap,
-                 com.adobe.acs.commons.workflow.audit.WorkflowAuditReportHelper"
-%><%
+                 com.adobe.acs.commons.workflow.audit.WorkflowAuditReportHelper"%><%
 
     WorkflowAuditReportHelper reportHelper = sling.getService(WorkflowAuditReportHelper.class);
 
@@ -30,7 +29,8 @@
     ValueMap wfProperties = wfResource.adaptTo(ValueMap.class);
 
     pageContext.setAttribute("workflow", wfProperties);
-    pageContext.setAttribute("workItems", reportHelper.getWorkItems(wfResource));
+    pageContext.setAttribute("children", wfResource.listChildren());
+    //pageContext.setAttribute("workItems", reportHelper.getWorkItems(wfResource));
 
 %>
 
@@ -41,10 +41,10 @@
     <li>Initiator: ${workflow.initiator}</li>
     <li>Payload: ${workflow.payload}</li>
     <li>Status: ${workflow.status}</li>
-    <li>Start Time: <fmt:formatDate value="${workflow.startTime.time}" pattern="yy-MMM-dd"/></li>
+    <li>Start Time: <fmt:formatDate value="${workflow.startedAt.time}" pattern="yy-MMM-dd"/></li>
 
     <c:if test="${not empty workflow.endTime}">
-        <li>End Time: <fmt:formatDate value="${workflow.endTime.time}" pattern="yy-MMM-dd"/></li>
+        <li>End Time: <fmt:formatDate value="${workflow.endedAt.time}" pattern="yy-MMM-dd"/></li>
     </c:if>
 </ul>
 
@@ -52,23 +52,7 @@
 
 <h4>Workflow Step History</h4>
 
-<c:forEach var="workItem" items="${workItems}">
-
-    <h5>${workItem.workflowStepTitle}</h5>
-    <p>${workItem.workflowStepDescription}</p>
-
-    <ul>
-        <li>Assignee: ${workItem.assignee}</li>
-        <li>Status: ${workItem.status}</li>
-        <li>Start Time: <fmt:formatDate value="${workItem.startTime.time}" pattern="yy-MMM-dd"/></li>
-
-        <c:if test="${not empty workItem.endTime}">
-            <li>End Time: <fmt:formatDate value="${workItem.endTime.time}" pattern="yy-MMM-dd"/></li>
-        </c:if>
-
-        <c:if test="${not empty workItem.metadata.comment}">
-            <li>Comment: ${workItem.metdata.comment}</li>
-        </c:if>
-    </ul>
-
+<c:forEach var="child" items="${children}">
+    <cq:include path="${child.path}" resourceType="${component.resourceType}/work-item" />
+    <hr/>
 </c:forEach>

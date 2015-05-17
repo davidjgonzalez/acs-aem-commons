@@ -20,8 +20,10 @@
 <%@include file="/libs/foundation/global.jsp" %><%
 %><%@page session="false" %><%
 
+    pageContext.setAttribute("resourcePath", resourceResolver.map(resource.getPath()));
+
 %><div ng-controller="ReportCtrl"
-     ng-init="app.uri = '/bin/workflow-audit.json'; load();">
+     ng-init="app.uri = '${resourcePath}.report.json'; load();">
 
     <table st-table="displayedCollection"
            st-safe-src="rowCollection"
@@ -48,7 +50,7 @@
                 <td>{{row.status}}</td>
                 <td><a x-cq-linkchecker="skip"
                        target="_blank"
-                       href="${currentPage.path}.details.html{{row.path}}">View</a></td>
+                       href="${resource.path}.details.html{{row.path}}">View</a></td>
             </tr>
         </tbody>
         <tfoot>

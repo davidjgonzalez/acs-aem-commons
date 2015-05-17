@@ -32,7 +32,8 @@ import javax.jcr.Session;
 @Component(
         label = "ACS AEM Commons - Workflow Audit Event Handler",
         description = "Captures AEM Workflow events and stores them as custom Audit nodes.",
-        immediate = true
+        immediate = true,
+        enabled = false
 )
 @Properties({
         @Property(

@@ -1,9 +1,7 @@
 package com.adobe.acs.commons.workflow.audit.impl;
 
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
-import org.apache.sling.api.SlingConstants;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.AbstractResourceVisitor;
@@ -16,28 +14,35 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.Node;
+import javax.jcr.RepositoryException;
 import javax.servlet.ServletException;
 import java.io.IOException;
 import java.util.Date;
 
 @SlingServlet(
         label = "ACS AEM Commons - Workflow Audit Data",
-        paths = { "/bin/workflow-audit.json" },
+        resourceTypes = { "acs-commons/components/utilities/workflow-audit/report-page" },
+        selectors = { "report" },
+        extensions = { "json "},
         methods = { "GET" }
 )
 public class WorkflowAuditDataServlet extends SlingSafeMethodsServlet {
-    private static final String ROOT_PATH = "/etc/workflow/audit";
+    private Logger log = LoggerFactory.getLogger(WorkflowAuditDataServlet.class);
 
     @Override
     protected void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)
             throws ServletException, IOException {
 
         response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
 
         final JSONArray table = new JSONArray();
 
-        final Resource root = request.getResourceResolver().getResource("/etc/workflow/audit");
+        final Resource root = request.getResourceResolver().getResource(Constants.PATH_WORKFLOW_AUDIT);
         final AuditVisitor auditVisitor = new AuditVisitor(table);
+
+        log.debug("Building Workflow Audit Report JSON from [ {} ]", root.getPath());
 
         auditVisitor.accept(root);
 
@@ -60,69 +65,59 @@ public class WorkflowAuditDataServlet extends SlingSafeMethodsServlet {
             return this.table;
         }
 
-
         @Override
         public final void accept(final Resource resource) {
-            final ValueMap properties = resource.adaptTo(ValueMap.class);
+            final Node node = resource.adaptTo(Node.class);
 
-            if (!properties.get(Constants.PN_IS_CONTAINER, false)) {
-                super.accept(resource);
+            try {
+                if(node != null && node.isNodeType(Constants.NT_SLING_ORDERED_FOLDER)) {
+                    log.debug("Accepting [ {} ]", resource.getPath());
+                    super.accept(resource);
+                }
+            } catch (RepositoryException e) {
+                log.error("Could not check Node Type for [ {} ]", resource.getPath());
             }
         }
 
-
         @Override
         protected void visit(final Resource resource) {
+            log.debug("Visiting resource [ {} ]", resource.getPath());
+
             final ValueMap properties = resource.adaptTo(ValueMap.class);
-            final String resourceType = properties.get(SlingConstants.PROPERTY_RESOURCE_TYPE, String.class);
 
             try {
-
-                if (StringUtils.equals(Constants.RT_WORKFLOW_INSTANCE_AUDIT, resourceType)) {
+                if (resource.isResourceType(Constants.RT_WORKFLOW_INSTANCE_AUDIT)) {
                     row = new JSONObject();
 
                     // New Row
+                    String payload = properties.get("payload", String.class);
+
 
                     row.put("path", resource.getPath());
+                    row.put("payload", properties.get("payload", "?"));
+                    row.put("payloadContent", properties.get("friendlyPath", payload));
+                    row.put("payloadTitle", properties.get("title", "?"));
                     row.put("status", properties.get("status", "?"));
                     row.put("modelTitle", properties.get("modelTitle", "?"));
                     row.put("modelVersion", properties.get("modelVersion", "1.0"));
                     row.put("initiator", properties.get("initiator", "?"));
-                    row.put("payload", properties.get("payload", "?"));
 
-                    if (properties.get("startTime", Date.class) != null) {
-                        row.put("startTime", properties.get("startTime", Date.class));
+                    if (properties.get("startedAt", Date.class) != null) {
+                        row.put("startedAt", properties.get("startedAt", Date.class));
                     }
 
-                    if (properties.get("endTime", Date.class) != null) {
-                        row.put("endTime", properties.get("endTime", Date.class));
+                    if (properties.get("endedAt", Date.class) != null) {
+                        row.put("endedAt", properties.get("endedAt", Date.class));
                     }
+
+                    log.debug("Adding row: {}", row.toString());
 
                     table.put(row);
 
-                } else if (StringUtils.equals(Constants.RT_WORKFLOW_ITEM_AUDIT, resourceType)) {
-                    final JSONObject item = new JSONObject();
-
-                    item.put("assignee", properties.get("assignee", "?"));
-                    item.put("status", properties.get("status", "?"));
-
-                    if (properties.get("startTime", Date.class) != null) {
-                        item.put("startTime", properties.get("startTime", Date.class));
-                    }
-
-                    if (properties.get("endTime", Date.class) != null) {
-                        item.put("endTime", properties.get("endTime", Date.class));
-                    }
-
-                    item.put("comment", properties.get("metaData/comment", ""));
-
-                    row.accumulate("items", item);
                 }
-
             } catch (JSONException e) {
                 log.error("Cannot build audit JSON response", e);
             }
         }
     }
-
 }

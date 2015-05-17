@@ -20,7 +20,7 @@
 <%@include file="/libs/foundation/global.jsp" %><%
 %><%@page session="false" %><%
 
-    pageContext.setAttribute("pagePath", resourceResolver.map(currentPage.getPath()));
+    pageContext.setAttribute("pagePath", resourceResolver.map(resource.getPath()));
     pageContext.setAttribute("resourcePath", resourceResolver.map(resource.getPath()));
     //pageContext.setAttribute("favicon", resourceResolver.map(component.getPath() + "/clientlibs/images/favicon.ico"));
 

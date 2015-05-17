@@ -7,10 +7,13 @@ import org.apache.sling.api.resource.LoginException;
 import org.apache.sling.api.resource.PersistenceException;
 
 import javax.jcr.RepositoryException;
+import java.util.List;
 
 public interface WorkflowAuditManager {
 
-    void audit(Workflow workflow, WorkflowSession workflowSession) throws WorkflowException,
+    List<String> audit(Workflow workflow, WorkflowSession workflowSession) throws WorkflowException,
             RepositoryException, PersistenceException, LoginException;
 
+    void link(Workflow originWorkflow, Workflow containeeWorkflow, WorkflowSession workflowSession) throws LoginException,
+            RepositoryException, PersistenceException;
 }
