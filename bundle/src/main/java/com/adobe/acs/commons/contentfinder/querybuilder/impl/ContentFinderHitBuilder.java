@@ -50,7 +50,7 @@ public final class ContentFinderHitBuilder {
 
     /**
      * Builds the result object that will representing a CF view record for the provided hit.
-     * <p/>
+     * <p>
      * This method will generate the result object data points based on if the hit is:
      * 1) a Page
      * 2) an Asset
@@ -304,9 +304,7 @@ public final class ContentFinderHitBuilder {
         if (StringUtils.equals(resource.getName(), JcrConstants.JCR_CONTENT)) {
             final Resource parent = resource.getParent();
             if (parent != null) {
-                if (parent.adaptTo(Page.class) != null) {
-                    return parent.adaptTo(Page.class);
-                }
+                return parent.adaptTo(Page.class);
             }
         }
 

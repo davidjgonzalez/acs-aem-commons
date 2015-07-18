@@ -25,6 +25,7 @@ import static org.mockito.Mockito.*;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.sling.api.adapter.AdapterFactory;
 import org.apache.sling.api.resource.Resource;
@@ -64,22 +65,12 @@ public class GenericListAdapterFactoryTest {
 
     @Before
     public void setup() {
-        when(listPage.getProperties()).thenAnswer(new Answer<ValueMap>() {
-            @SuppressWarnings("serial")
-            public ValueMap answer(InvocationOnMock invocation) throws Throwable {
-                return new ValueMapDecorator(new HashMap<String, Object>() {
-                    {
-                        put(NameConstants.NN_TEMPLATE, GenericListImpl.TMPL_GENERIC_LIST);
-
-                    }
-                });
-            }
-        });
         when(listPage.getContentResource()).thenReturn(contentResource);
+        when(contentResource.isResourceType(GenericListImpl.RT_GENERIC_LIST)).thenReturn(true);
         when(contentResource.getChild("list")).thenReturn(listResource);
         when(listResource.listChildren()).thenReturn(Arrays.asList(resourceOne, resourceTwo).iterator());
 
-        when(resourceOne.adaptTo(ValueMap.class)).thenAnswer(new Answer<ValueMap>() {
+        when(resourceOne.getValueMap()).thenAnswer(new Answer<ValueMap>() {
             @SuppressWarnings("serial")
             public ValueMap answer(InvocationOnMock invocation) throws Throwable {
                 return new ValueMapDecorator(new HashMap<String, Object>() {
@@ -91,13 +82,15 @@ public class GenericListAdapterFactoryTest {
                 });
             }
         });
-        when(resourceTwo.adaptTo(ValueMap.class)).thenAnswer(new Answer<ValueMap>() {
+        when(resourceTwo.getValueMap()).thenAnswer(new Answer<ValueMap>() {
             @SuppressWarnings("serial")
             public ValueMap answer(InvocationOnMock invocation) throws Throwable {
                 return new ValueMapDecorator(new HashMap<String, Object>() {
                     {
                         put(NameConstants.PN_TITLE, "titletwo");
                         put(GenericListImpl.PN_VALUE, "valuetwo");
+                        put(NameConstants.PN_TITLE + "." + "fr", "french_title");
+                        put(NameConstants.PN_TITLE + "." + "fr_ch", "swiss_french_title");
 
                     }
                 });
@@ -108,7 +101,7 @@ public class GenericListAdapterFactoryTest {
     }
 
     @Test
-    public void test_that_adapting_page_with_correct_template_returns_directly() {
+    public void test_that_adapting_page_with_correct_resourceType_returns_directly() {
         GenericList list = adapterFactory.getAdapter(listPage, GenericList.class);
         assertNotNull(list);
         List<Item> items = list.getItems();
@@ -119,20 +112,12 @@ public class GenericListAdapterFactoryTest {
     }
 
     @Test
-    public void test_that_adapting_page_with_wrong_template_returns_null() {
+    public void test_that_adapting_page_with_wrong_resourceType_returns_null() {
         Page wrongPage = mock(Page.class);
+        Resource wrongContentResource = mock(Resource.class);
 
-        when(wrongPage.getProperties()).thenAnswer(new Answer<ValueMap>() {
-            @SuppressWarnings("serial")
-            public ValueMap answer(InvocationOnMock invocation) throws Throwable {
-                return new ValueMapDecorator(new HashMap<String, Object>() {
-                    {
-                        put(NameConstants.NN_TEMPLATE, "/wrong");
-
-                    }
-                });
-            }
-        });
+        when(wrongPage.getContentResource()).thenReturn(wrongContentResource);
+        when(wrongContentResource.isResourceType(GenericListImpl.RT_GENERIC_LIST)).thenReturn(false);
 
         GenericList section = adaptToGenericList(wrongPage);
         assertNull(section);
@@ -153,5 +138,24 @@ public class GenericListAdapterFactoryTest {
 
         GenericList section = adaptToGenericList(wrongPage);
         assertNull(section);
+    }
+
+    @Test
+    public void test_i18n_titles() {
+        Locale french = new Locale("fr");
+        Locale swissFrench = new Locale("fr", "ch");
+        Locale franceFrench = new Locale("fr", "fr");
+
+        GenericList list = adapterFactory.getAdapter(listPage, GenericList.class);
+        assertNotNull(list);
+        List<Item> items = list.getItems();
+        assertNotNull(items);
+        assertEquals(2, items.size());
+        assertEquals("titleone", items.get(0).getTitle(french));
+        assertEquals("titleone", items.get(0).getTitle(swissFrench));
+        assertEquals("titleone", items.get(0).getTitle(franceFrench));
+        assertEquals("french_title", items.get(1).getTitle(french));
+        assertEquals("swiss_french_title", items.get(1).getTitle(swissFrench));
+        assertEquals("french_title", items.get(1).getTitle(franceFrench));
     }
 }

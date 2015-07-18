@@ -19,14 +19,17 @@
  */
 package com.adobe.acs.commons.util;
 
+import aQute.bnd.annotation.ConsumerType;
+
 import com.day.cq.jcrclustersupport.ClusterAware;
 
 /**
  * Abstact base class for scheduled job to be run only on the cluster master.
  */
+@ConsumerType
 public abstract class RunnableOnMaster implements ClusterAware, Runnable {
 
-    private boolean isMaster;
+    private volatile boolean isMaster;
 
     /**
      * Run the scheduled job.

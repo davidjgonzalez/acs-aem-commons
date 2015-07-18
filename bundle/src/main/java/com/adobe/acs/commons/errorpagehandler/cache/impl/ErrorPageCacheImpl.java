@@ -86,7 +86,12 @@ public final class ErrorPageCacheImpl extends AnnotatedStandardMBean implements 
         if (newEntry || cacheEntry.isExpired(new Date())) {
 
             // Cache Miss
-            final String data = ResourceDataUtil.getIncludeAsString(path, request, response);
+            String data = ResourceDataUtil.getIncludeAsString(path, request, response);
+
+            if (data == null) {
+                log.debug("Error page representation to cache is null. Setting to empty string.");
+                data = "";
+            }
 
             if (newEntry) {
                 cacheEntry = new CacheEntry();
@@ -101,7 +106,10 @@ public final class ErrorPageCacheImpl extends AnnotatedStandardMBean implements 
                 cache.put(path, cacheEntry);
             }
 
-            log.info("Served cache MISS for [ {} ] in [ {} ] ms", path, System.currentTimeMillis() - start);
+            if (log.isDebugEnabled()) {
+                final long time = System.currentTimeMillis() - start;
+                log.debug("Served cache MISS for [ {} ] in [ {} ] ms", path, time);
+            }
 
             return data;
         } else {
@@ -112,7 +120,10 @@ public final class ErrorPageCacheImpl extends AnnotatedStandardMBean implements 
             cacheEntry.incrementHits();
             cache.put(path, cacheEntry);
 
-            log.info("Served cache HIT for [ {} ] in [ {} ] ms", path, System.currentTimeMillis() - start);
+            if (log.isDebugEnabled()) {
+                final long time = System.currentTimeMillis() - start;
+                log.debug("Served cache HIT for [ {} ] in [ {} ] ms", path, time);
+            }
 
             return data;
         }

@@ -32,6 +32,7 @@ import org.apache.sling.scripting.jsp.util.TagUtil;
 import tldgen.BodyContentType;
 import tldgen.Tag;
 import tldgen.TagAttribute;
+import aQute.bnd.annotation.ProviderType;
 
 import com.adobe.acs.commons.wcm.ComponentHelper;
 import com.adobe.acs.commons.wcm.impl.ComponentHelperImpl;
@@ -45,20 +46,17 @@ import com.day.cq.wcm.foundation.Placeholder;
  * for both Classic UI and Touch UI.
  *
  */
+@ProviderType
 @Tag(bodyContentType = BodyContentType.JSP, value = "placeholder")
-public class PlaceholderTag extends BodyTagSupport {
+public final class PlaceholderTag extends BodyTagSupport {
 
     private static final long serialVersionUID = -2497240151981056169L;
 
     private static final String DEFAULT_CLASS_NAME = "cq-text-placeholder";
 
-    private transient ComponentHelper componentHelper;
-
-    public PlaceholderTag() {
-        // NOTE - not a service lookup because (right now) ComponentHelperImpl is
-        // not configured.
-        componentHelper = new ComponentHelperImpl();
-    }
+    // NOTE - not a service lookup because (right now) ComponentHelperImpl is
+    // not configured.
+    private transient ComponentHelper componentHelper = new ComponentHelperImpl();
 
     private String classNames;
 

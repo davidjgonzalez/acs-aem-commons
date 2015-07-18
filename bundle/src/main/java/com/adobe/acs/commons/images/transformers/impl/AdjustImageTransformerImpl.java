@@ -23,23 +23,18 @@ package com.adobe.acs.commons.images.transformers.impl;
 import com.adobe.acs.commons.images.ImageTransformer;
 import com.day.image.Layer;
 import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.api.resource.ValueMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Component(
-        label = "ACS AEM Commons - Image Transformer - Adjust Brightness and Contrast"
-)
-@Properties({
-        @Property(
-                name = ImageTransformer.PROP_TYPE,
-                value = AdjustImageTransformerImpl.TYPE,
-                propertyPrivate = true
-        )
-})
+/**
+ * ACS AEM Commons - Image Transformer - Adjust Brightness and Contrast
+ */
+@Component
+@Property(name = ImageTransformer.PROP_TYPE,
+          value = AdjustImageTransformerImpl.TYPE)
 @Service
 public class AdjustImageTransformerImpl implements ImageTransformer {
     private static final Logger log = LoggerFactory.getLogger(AdjustImageTransformerImpl.class);
@@ -62,7 +57,7 @@ public class AdjustImageTransformerImpl implements ImageTransformer {
         log.debug("Transforming with [ {} ]", TYPE);
 
         int brightness = properties.get(KEY_BRIGHTNESS, properties.get(KEY_BRIGHTNESS_ALIAS, 0));
-        float contrast = properties.get(KEY_CONTRAST, properties.get(KEY_CONTRAST_ALIAS, 1F));
+        float contrast = properties.get(KEY_CONTRAST, properties.get(KEY_CONTRAST_ALIAS, 1.0)).floatValue();
 
         layer.adjust(brightness, contrast);
 

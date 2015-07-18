@@ -18,7 +18,7 @@
  * #L%
  */
 /*global CQ: false, ACS: false */
-CQ.Ext.ns("ACS.CQ");
+CQ.Ext.ns("ACS.CQ"); 
 /**
  * @class ACS.CQ.MultiFieldPanel
  * @extends CQ.form.Panel
@@ -64,6 +64,19 @@ ACS.CQ.MultiFieldPanel = CQ.Ext.extend(CQ.Ext.Panel, {
         },this);
     },
 
+    afterRender : function(){
+        ACS.CQ.MultiFieldPanel.superclass.afterRender.call(this);
+
+        this.items.each(function(){
+            if(!this.contentBasedOptionsURL
+                || this.contentBasedOptionsURL.indexOf(CQ.form.Selection.PATH_PLACEHOLDER) < 0){
+                return;
+            }
+
+            this.processPath(this.findParentByType('dialog').path);
+        });
+    },
+
     getValue: function() {
         var pData = {};
 
@@ -71,7 +84,6 @@ ACS.CQ.MultiFieldPanel = CQ.Ext.extend(CQ.Ext.Panel, {
             if(i.xtype === "label" || i.xtype === "hidden" || !i.hasOwnProperty("key")){
                 return;
             }
-
             pData[i.key] = i.getValue();
         });
 
@@ -85,10 +97,6 @@ ACS.CQ.MultiFieldPanel = CQ.Ext.extend(CQ.Ext.Panel, {
 
         this.items.each(function(i){
             if(i.xtype === "label" || i.xtype === "hidden" || !i.hasOwnProperty("key")){
-                return;
-            }
-
-            if(!pData[i.key]){
                 return;
             }
 

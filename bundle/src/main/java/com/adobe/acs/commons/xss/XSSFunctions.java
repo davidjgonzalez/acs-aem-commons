@@ -23,12 +23,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import tldgen.Function;
+import aQute.bnd.annotation.ProviderType;
 
 import com.adobe.granite.xss.XSSAPI;
 
 /**
  * XSSAPI JSP Function wrappers.
  */
+@ProviderType
 public final class XSSFunctions {
 
     private static final String LINK_PREFIX = "<a href='";
@@ -129,7 +131,7 @@ public final class XSSFunctions {
 
         return absPath;
     }
-    
+
     private XSSFunctions() {
     }
 
@@ -146,7 +148,7 @@ public final class XSSFunctions {
     public static String getValidDimension(XSSAPI xssAPI, String dimension, String defaultValue) {
         return xssAPI.getValidDimension(dimension, defaultValue);
     }
-    
+
     /**
      * Validate a string which should contain an integer, returning a default value if the source is
      * empty, can't be parsed, or contains XSS risks.

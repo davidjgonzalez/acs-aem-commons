@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.adobe.acs</groupId>
         <artifactId>acs-aem-commons</artifactId>
-        <version>1.6.3-SNAPSHOT</version>
+        <version>1.10.3-SNAPSHOT</version>
     </parent>
 
     <!-- ====================================================================== -->
@@ -51,20 +51,9 @@
                         <Bundle-SymbolicName>com.adobe.acs.acs-aem-commons-bundle</Bundle-SymbolicName>
                         <Import-Package>
                             org.scribe*;version="[1.3.0,2)",
-                            ch.qos.logback.*;resolution:=optional,
-                            org.apache.sling.models.*;resolution:=optional,
+                            com.adobe.cq.dialogconversion;resolution:=optional,
                             *
                         </Import-Package>
-                        <Include-Resource>
-                            {maven-resources},
-                            META-INF/wcmmode.tld=target/classes/META-INF/wcmmode.tld,
-                            META-INF/audio.tld=target/classes/META-INF/audio.tld,
-                            META-INF/dhlm.tld=target/classes/META-INF/dhlm.tld,
-                            META-INF/xss.tld=target/classes/META-INF/xss.tld,
-                            META-INF/dam.tld=target/classes/META-INF/dam.tld,
-                            META-INF/widgets.tld=target/classes/META-INF/widgets.tld,
-                            META-INF/wcm.tld=target/classes/META-INF/wcm.tld
-                        </Include-Resource>
                     </instructions>
                 </configuration>
             </plugin>
@@ -78,11 +67,19 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <configuration>
-                    <excludePackageNames>
-                        *.impl
-                    </excludePackageNames>
+                   <systemPropertyVariables>
+                       <artifactPath>${project.artifact.file.absolutePath}</artifactPath>
+                   </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>
@@ -122,14 +119,6 @@
             <artifactId>jcr</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.jcr.api</artifactId>
-        </dependency>
-        <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
             <version>1.5</version>
@@ -141,110 +130,41 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.jcr.resource</artifactId>
-            <version>2.0.6</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>commons-lang</groupId>
             <artifactId>commons-lang</artifactId>
-            <version>2.5</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-collections</groupId>
+            <artifactId>commons-collections</artifactId>
+            <version>3.2.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.day.cq</groupId>
-            <artifactId>cq-commons</artifactId>
-            <version>5.5.0</version>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-email</artifactId>
+            <version>1.2</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.day.cq.wcm</groupId>
-            <artifactId>cq-wcm-commons</artifactId>
-            <version>5.5.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq.wcm</groupId>
-            <artifactId>cq-wcm-api</artifactId>
-            <version>5.6.6</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq.wcm</groupId>
-            <artifactId>cq-wcm-foundation</artifactId>
-            <version>5.6.4</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq.dam</groupId>
-            <artifactId>cq-dam-api</artifactId>
-            <version>5.5.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq</groupId>
-            <artifactId>cq-tagging</artifactId>
-            <version>5.5.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq.dam</groupId>
-            <artifactId>cq-dam-commons</artifactId>
-            <version>5.5.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.commons</groupId>
-            <artifactId>day-commons-gfx</artifactId>
-            <version>2.1.16</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq.workflow</groupId>
-            <artifactId>cq-workflow-api</artifactId>
-            <version>5.5.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.commons.mime</artifactId>
-            <version>2.1.4</version>
+            <groupId>org.apache.felix</groupId>
+            <artifactId>org.apache.felix.scr</artifactId>
+            <version>1.8.2</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <version>2.0.1</version>
+            <version>3.0.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.day.cq</groupId>
-            <artifactId>cq-security-api</artifactId>
-            <version>5.6.2</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.adobe.granite</groupId>
-            <artifactId>com.adobe.granite.jcrclustersupport</artifactId>
-            <version>0.5.2</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq.dam</groupId>
-            <artifactId>cq-dam-video</artifactId>
-            <version>5.6.2</version>
-            <scope>provided</scope>
+            <groupId>com.adobe.aem</groupId>
+            <artifactId>aem-api</artifactId>
         </dependency>
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
             <version>1.5.2</version>
-        </dependency>
-        <dependency>
-            <groupId>com.adobe.granite</groupId>
-            <artifactId>com.adobe.granite.xssprotection</artifactId>
-            <version>5.5.14</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -260,72 +180,6 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.commons.json</artifactId>
-            <version>2.0.6</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq</groupId>
-            <artifactId>cq-search</artifactId>
-            <version>5.5.4</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.auth.core</artifactId>
-            <version>1.1.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq</groupId>
-            <artifactId>cq-compat-commons-auth</artifactId>
-            <version>0.1.2</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.adobe.granite</groupId>
-            <artifactId>com.adobe.granite.ui.commons</artifactId>
-            <version>5.5.6</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.cq.wcm</groupId>
-            <artifactId>cq-wcm-core</artifactId>
-            <version>5.5.6</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.jackrabbit</groupId>
-            <artifactId>jackrabbit-jcr-commons</artifactId>
-            <version>2.5.3</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.jackrabbit</groupId>
-            <artifactId>jackrabbit-api</artifactId>
-            <version>2.6.2</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.rewriter</artifactId>
-            <version>1.0.4</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.scripting.jsp</artifactId>
-            <version>2.0.28</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.adobe.granite</groupId>
-            <artifactId>com.adobe.granite.replication.core</artifactId>
-            <version>5.5.8</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>org.scribe</groupId>
             <artifactId>scribe</artifactId>
             <version>1.3.0</version>
@@ -338,66 +192,27 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.models.api</artifactId>
-            <version>1.0.0</version>
+            <groupId>com.adobe.cq</groupId>
+            <artifactId>cq-dialog-conversion</artifactId>
+            <version>1.0.2</version>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>com.day.cq</groupId>
-            <artifactId>cq-mailer</artifactId>
-            <version>5.6.4</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency> 
-            <groupId>org.apache.felix</groupId> 
-            <artifactId>org.apache.felix.scr</artifactId> 
-            <version>1.6.2</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.day.jcr.vault</groupId>
-            <artifactId>com.day.jcr.vault</artifactId>
-            <version>2.4.32</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.adobe.granite</groupId>
-            <artifactId>com.adobe.granite.jmx</artifactId>
-            <version>0.2.6</version>
-            <scope>provided</scope>
-        </dependency>
-
         <!-- Test Dependencies -->
         <dependency>
             <groupId>org.apache.sling</groupId>
             <artifactId>org.apache.sling.commons.testing</artifactId>
-            <version>2.0.14</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <artifactId>slf4j-simple</artifactId>
-                    <groupId>org.slf4j</groupId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>1.9.5</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.powermock</groupId>
             <artifactId>powermock-api-mockito</artifactId>
-            <version>1.5.2</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.powermock</groupId>
             <artifactId>powermock-module-junit4</artifactId>
-            <version>1.5.2</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>junit-addons</groupId>
@@ -410,11 +225,23 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.sling</groupId>
-            <artifactId>org.apache.sling.commons.osgi</artifactId>
-            <version>2.2.0</version>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+            <version>1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.sling</groupId>
+            <artifactId>org.apache.sling.commons.html</artifactId>
+            <version>1.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>commons-dbcp</groupId>
+            <artifactId>commons-dbcp</artifactId>
+            <version>1.4</version>
+            <scope>test</scope>
+         </dependency>
 
         <!--  Build Dependencies -->
         <dependency>

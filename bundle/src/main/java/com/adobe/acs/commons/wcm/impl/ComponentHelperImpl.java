@@ -265,7 +265,7 @@ public final class ComponentHelperImpl implements ComponentHelper {
             if (dropTarget != null) {
                 // If editType has not been specified then intelligently determine the best match
                 editType = (editType == null) ? getWCMEditType(dropTarget) : editType;
-                
+
                 String classNames = dropTarget.getId() + " " + editType.getCssClass();
                 String placeholderTitle = "Drop Target: " + dropTarget.getName();
 
@@ -288,9 +288,9 @@ public final class ComponentHelperImpl implements ComponentHelper {
     /**
      * "Intelligently" determines the WCMEditType to use based on the
      * DropTarget.
-     * <p/>
+     * <p>
      * Inspects the DropTarget's Groups and Accepts to make this determination.
-     * <p/>
+     * <p>
      * If no match can be found, defaults to TEXT
      *
      * @param dropTarget the drop target

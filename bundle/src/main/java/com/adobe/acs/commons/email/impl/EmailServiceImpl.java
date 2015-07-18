@@ -23,12 +23,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
 import javax.jcr.Session;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.text.StrLookup;
+import org.apache.commons.mail.Email;
 import org.apache.commons.mail.HtmlEmail;
+import org.apache.commons.mail.SimpleEmail;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
@@ -36,14 +40,18 @@ import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ResourceResolverFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import com.adobe.acs.commons.email.EmailService;
 import com.adobe.acs.commons.email.EmailServiceConstants;
 import com.day.cq.commons.mail.MailTemplate;
 import com.day.cq.mailer.MessageGateway;
 import com.day.cq.mailer.MessageGatewayService;
 
-@Component(label = "ACS AEM Commons - E-mail Service",
-    description = "A Generic Email service that sends an email to a given list of recipients.")
+/**
+ * ACS AEM Commons - E-mail Service
+ * A Generic Email service that sends an email to a given list of recipients.
+ */
+@Component
 @Service
 public final class EmailServiceImpl implements EmailService {
 
@@ -95,13 +103,13 @@ public final class EmailServiceImpl implements EmailService {
         if (StringUtils.isBlank(templatePath)) {
             throw new IllegalArgumentException("Template path is null or empty");
         }
-        HtmlEmail email = getEmail(templatePath, emailParams);
+        Email email = getEmail(templatePath, emailParams);
 
         if (email == null) {
             throw new IllegalArgumentException("Error while creating template");
         }
 
-        MessageGateway<HtmlEmail> messageGateway = messageGatewayService.getGateway(HtmlEmail.class);
+        MessageGateway<Email> messageGateway = messageGatewayService.getGateway(email.getClass());
 
         for (InternetAddress address : recipients) {
             try {
@@ -116,8 +124,7 @@ public final class EmailServiceImpl implements EmailService {
         return failureList;
     }
 
-
-    private HtmlEmail getEmail(String templatePath, Map<String, String> emailParams) {
+    private Email getEmail(String templatePath, Map<String, String> emailParams) {
         ResourceResolver resourceResolver = null;
         try {
             resourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
@@ -129,7 +136,9 @@ public final class EmailServiceImpl implements EmailService {
                return null;
            }
 
-           final HtmlEmail email = mailTemplate.getEmail(StrLookup.mapLookup(emailParams), HtmlEmail.class);
+           Class<? extends Email> emailClass = templatePath.endsWith(".html") ? HtmlEmail.class : SimpleEmail.class;
+
+           final Email email = mailTemplate.getEmail(StrLookup.mapLookup(emailParams), emailClass);
 
            if (emailParams.containsKey(EmailServiceConstants.SENDER_EMAIL_ADDRESS)
                     && emailParams.containsKey(EmailServiceConstants.SENDER_NAME)) {

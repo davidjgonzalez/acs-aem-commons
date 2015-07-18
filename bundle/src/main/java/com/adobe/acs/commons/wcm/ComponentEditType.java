@@ -21,15 +21,18 @@ package com.adobe.acs.commons.wcm;
 
 import org.apache.commons.lang.StringUtils;
 
+import aQute.bnd.annotation.ProviderType;
+
 /**
  * This is a wrapper class that allows the "canned" list to be extends to include
  * custom Types:
- * <p/>
+ * <p>
  * public class CustomEditTypes extends ComponentEditType {
  * public static final Type CUSTOM = new ComponentEditType.Type("CUSTOM");
  * }
  */
-public class ComponentEditType {
+@ProviderType
+public final class ComponentEditType {
     public static final Type CHART = new Type("CHART");
     public static final Type IMAGE = new Type("IMAGE");
     public static final Type VIDEO = new Type("VIDEO");

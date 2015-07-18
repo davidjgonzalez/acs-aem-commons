@@ -22,10 +22,13 @@ package com.adobe.acs.commons.util;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.wrappers.SlingHttpServletResponseWrapper;
 
+import aQute.bnd.annotation.ProviderType;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-public class StringWriterResponse extends SlingHttpServletResponseWrapper {
+@ProviderType
+public final class StringWriterResponse extends SlingHttpServletResponseWrapper {
     private StringWriter stringWriter = new StringWriter();
     private PrintWriter printWriter = new PrintWriter(stringWriter);
 

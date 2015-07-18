@@ -43,10 +43,13 @@ import com.day.cq.dam.video.VideoProfile;
 import com.day.cq.workflow.WorkflowSession;
 import com.day.cq.workflow.metadata.MetaDataMap;
 
-@Component(label = "CQ DAM FFmpeg Audio Encode Process",
-        description = "Workflow process that transcodes audio files into different formats")
+/**
+ * CQ DAM FFmpeg Audio Encode Process
+ * Workflow process that transcodes audio files into different formats
+ */
+@Component
 @Service
-@Properties({ @Property(name = "process.label", value = "Encode Audio", propertyPrivate = true) })
+@Properties({ @Property(name = "process.label", value = "Encode Audio") })
 public final class FFMpegAudioEncodeProcess extends AbstractFFMpegAudioProcess {
 
     private static final Logger log = LoggerFactory.getLogger(FFMpegAudioEncodeProcess.class);
@@ -105,7 +108,10 @@ public final class FFMpegAudioEncodeProcess extends AbstractFFMpegAudioProcess {
                 }
             }
         }
-        log.info("finished processing asset [{}] in [{}ms].", asset.getPath(), System.currentTimeMillis() - start);
+        if (log.isInfoEnabled()) {
+            final long time = System.currentTimeMillis() - start;
+            log.info("finished processing asset [{}] in [{}ms].", asset.getPath(), time);
+        }
     }
 
     public String[] getVideoProfiles(MetaDataMap metaData) {
