@@ -18,9 +18,10 @@
  * #L%
  */
 
-/*global angular: false, JSON: false, bulkPropertyManagerApp: false */
+/*global angular: false, JSON: false */
 
-bulkPropertyManagerApp.controller('ResultsCtrl', function ($scope, $rootScope, $http, $timeout) {
+angular.module('acs-commons-bulk-property-manager-app')
+    .controller('ResultsCtrl', ['$scope', '$rootScope', '$http', function ($scope, $rootScope, $http) {
 
     $scope.$on("refreshResults", function (event, args) {
         $scope.getResults();
@@ -65,4 +66,4 @@ bulkPropertyManagerApp.controller('ResultsCtrl', function ($scope, $rootScope, $
                 $scope.addNotification('success', 'SUCCESS', 'Deleted result CSV file. ');
             });
     };
-});
+}]);

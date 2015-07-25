@@ -18,9 +18,10 @@
  * #L%
  */
 
-/*global angular: false, JSON: false, bulkPropertyManagerApp: false */
+/*global angular: false, JSON: false */
 
-bulkPropertyManagerApp.controller('AddCtrl', function ($scope, $rootScope, $http, $timeout) {
+angular.module('acs-commons-bulk-property-manager-app')
+    .controller('AddCtrl', ['$scope', '$rootScope', '$http', function ($scope, $rootScope, $http) {
 
     $scope.add = function (dryRun) {
         $scope.app.running = true;
@@ -44,4 +45,4 @@ bulkPropertyManagerApp.controller('AddCtrl', function ($scope, $rootScope, $http
                 $scope.addNotification('error', 'ERROR', data);
             });
     };
-});
+}]);

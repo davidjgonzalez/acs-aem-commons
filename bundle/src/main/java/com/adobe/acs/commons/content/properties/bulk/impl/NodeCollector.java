@@ -35,7 +35,11 @@ public class NodeCollector {
 
         log.debug("Raw Query: {}", expression);
 
-        return result.getNodes();
+        if(result.getNodes() != null) {
+            return result.getNodes();
+        } else {
+            return EmptyIterator.INSTANCE;
+        }
     }
 
     public static final Iterator<Node> getNodesFromConstructedQuery(final ResourceResolver resourceResolver,
@@ -65,7 +69,11 @@ public class NodeCollector {
 
         log.debug("Constructed Query: {}", queryResult.getQueryStatement());
 
-        return queryResult.getNodes();
+        if(queryResult.getNodes() != null) {
+            return queryResult.getNodes();
+        } else {
+            return EmptyIterator.INSTANCE;
+        }
     }
 
 

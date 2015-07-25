@@ -20,9 +20,8 @@
 
 /*global angular: false, JSON: false */
 
-var bulkPropertyManagerApp = angular.module('bulkPropertyManagerApp', []);
-
-bulkPropertyManagerApp.controller('MainCtrl', function ($scope, $http, $timeout) {
+angular.module('acs-commons-bulk-property-manager-app', [])
+    .controller('MainCtrl', ['$scope', '$http', '$timeout', function ($scope, $http, $timeout) {
 
     $http.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded;charset=utf-8';
 
@@ -72,6 +71,6 @@ bulkPropertyManagerApp.controller('MainCtrl', function ($scope, $http, $timeout)
         }, timeout);
     };
 
-});
+}]);
 
 

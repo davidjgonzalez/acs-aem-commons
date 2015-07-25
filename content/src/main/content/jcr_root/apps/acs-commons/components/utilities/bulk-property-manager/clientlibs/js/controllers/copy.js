@@ -18,9 +18,10 @@
  * #L%
  */
 
-/*global angular: false, JSON: false, bulkPropertyManagerApp: false */
+/*global angular: false, JSON: false */
 
-bulkPropertyManagerApp.controller('CopyCtrl', function ($scope, $rootScope, $http, $timeout) {
+angular.module('acs-commons-bulk-property-manager-app')
+    .controller('CopyCtrl', ['$scope', '$rootScope', '$http', function ($scope, $rootScope, $http) {
 
     $scope.copy = function (dryRun) {
         $scope.app.running = true;
@@ -46,4 +47,4 @@ bulkPropertyManagerApp.controller('CopyCtrl', function ($scope, $rootScope, $htt
 
     };
 
-});
+}]);

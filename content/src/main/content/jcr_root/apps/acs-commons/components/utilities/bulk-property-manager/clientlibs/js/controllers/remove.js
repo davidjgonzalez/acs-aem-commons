@@ -18,9 +18,10 @@
  * #L%
  */
 
-/*global angular: false, JSON: false, bulkPropertyManagerApp: false */
+/*global angular: false, JSON: false */
 
-bulkPropertyManagerApp.controller('RemoveCtrl', function ($scope, $rootScope, $http, $timeout) {
+angular.module('acs-commons-bulk-property-manager-app')
+    .controller('RemoveCtrl', ['$scope', '$rootScope', '$http', function ($scope, $rootScope, $http) {
 
     $scope.remove = function (dryRun) {
         $scope.app.running = true;
@@ -43,7 +44,5 @@ bulkPropertyManagerApp.controller('RemoveCtrl', function ($scope, $rootScope, $h
                 $scope.error = data;
                 $scope.addNotification('error', 'ERROR', data);
             });
-
     };
-
-});
+}]);

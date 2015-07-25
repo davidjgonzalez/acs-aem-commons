@@ -104,5 +104,5 @@
 <%-- Register angular app; Decreases chances of collisions w other angular apps on the page (ex. via injection) --%>
 <script type="text/javascript">
     angular.bootstrap(document.getElementById('acs-commons-bulk-property-manager-app'),
-        ['bulkPropertyManagerApp']);
+        ['acs-commons-bulk-property-manager-app']);
 </script>

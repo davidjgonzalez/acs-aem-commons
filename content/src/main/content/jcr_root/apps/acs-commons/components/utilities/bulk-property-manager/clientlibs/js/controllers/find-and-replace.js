@@ -18,9 +18,10 @@
  * #L%
  */
 
-/*global angular: false, JSON: false, bulkPropertyManagerApp: false */
+/*global angular: false, JSON: false */
 
-bulkPropertyManagerApp.controller('FindAndReplaceCtrl', function ($scope, $rootScope, $http, $timeout) {
+angular.module('acs-commons-bulk-property-manager-app')
+    .controller('FindAndReplaceCtrl', ['$scope', '$rootScope', '$http', function ($scope, $rootScope, $http) {
 
     $scope.findAndReplace = function (dryRun) {
         $scope.app.running = true;
@@ -44,4 +45,4 @@ bulkPropertyManagerApp.controller('FindAndReplaceCtrl', function ($scope, $rootS
                 $scope.addNotification('error', 'ERROR', data);
             });
     };
-});
+}]);
