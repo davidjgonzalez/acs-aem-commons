@@ -87,7 +87,9 @@ public class FindAndReplaceServlet extends AbstractBaseServlet {
 
                 if (!StringUtils.equals(originalValue, newValue)) {
                     if (canModifyProperties(resource)) {
-                        mvm.put(entry.getKey(), newValue);
+                        if (!params.get(KEY_DRY_RUN, false)) {
+                            mvm.put(entry.getKey(), newValue);
+                        }
                         dirty = true;
                     } else {
                         return new Result(Result.Status.ACCESS_ERROR, resource.getPath());
@@ -117,7 +119,9 @@ public class FindAndReplaceServlet extends AbstractBaseServlet {
                     // If any element in the Array is dirty (was replaced) then update the entire
                     // property and mark the overall process as being dirty
                     if (canModifyProperties(resource)) {
-                        mvm.put(entry.getKey(), values);
+                        if (!params.get(KEY_DRY_RUN, false)) {
+                            mvm.put(entry.getKey(), values);
+                        }
                         dirty = true;
                     } else {
                         return new Result(Result.Status.ACCESS_ERROR, resource.getPath());

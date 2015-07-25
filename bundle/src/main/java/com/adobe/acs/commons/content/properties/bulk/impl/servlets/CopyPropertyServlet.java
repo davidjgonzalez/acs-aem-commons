@@ -70,7 +70,9 @@ public class CopyPropertyServlet extends AbstractBaseServlet {
 
         if (mvm != null && mvm.keySet().contains(srcPropertyName)) {
             if (canModifyProperties(resource)) {
-                mvm.put(destPropertyName, mvm.get(srcPropertyName));
+                if (!params.get(KEY_DRY_RUN, false)) {
+                    mvm.put(destPropertyName, mvm.get(srcPropertyName));
+                }
                 return new Result(Result.Status.SUCCESS, resource.getPath());
             } else {
                 return new Result(Result.Status.ACCESS_ERROR, resource.getPath());

@@ -82,7 +82,9 @@ public class AddPropertyServlet extends AbstractBaseServlet {
                 && (!mvm.keySet().contains(propertyName) || overwrite)) {
 
             if (canModifyProperties(resource)) {
-                mvm.put(propertyName, params.get(PROPERTY_VALUE));
+                if (!params.get(KEY_DRY_RUN, false)) {
+                    mvm.put(propertyName, params.get(PROPERTY_VALUE));
+                }
                 return new Result(Result.Status.SUCCESS, resource.getPath());
             } else {
                 return new Result(Result.Status.ACCESS_ERROR, resource.getPath());

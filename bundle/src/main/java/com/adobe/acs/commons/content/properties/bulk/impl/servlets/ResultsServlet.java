@@ -36,6 +36,7 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.RepositoryException;
 import javax.servlet.ServletException;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -60,8 +61,13 @@ public class ResultsServlet extends SlingSafeMethodsServlet {
         final boolean dryRun = ArrayUtils.contains(request.getRequestPathInfo().getSelectors(),
                 "dry-run-results");
 
-        final Resource results = ResultsUtil.getResultResource(request.getResource(), dryRun);
-
+        final Resource results;
+        try {
+            results = ResultsUtil.getResultResource(request.getResource(), dryRun);
+        } catch (RepositoryException e) {
+            log.error("Could not get or create results or dry-run results node", e);
+            throw new ServletException(e.getMessage());
+        }
 
         final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("MMM dd YYYY, h:mm:ss a");
 

@@ -134,6 +134,7 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
 
             /* Process */
             final Resource resultResource = ResultsUtil.getResultResource(request.getResource(), dryRun);
+
             final Session session = resourceResolver.adaptTo(Session.class);
             final List<Result> results = new ArrayList<Result>();
             List<Result> batch = new ArrayList<Result>();
@@ -176,7 +177,9 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
             saveChanges(batchSize, session, results, batch, count, true);
 
             // Set to JSON
-            ResultsUtil.createResults(results, params, resultResource);
+            String path = ResultsUtil.createResults(results, params, resultResource);
+
+            writeSuccessResponse(resourceResolver.getResource(path), response);
         } catch (JSONException e) {
             log.error("JSON Exception", e);
             response.setStatus(SlingHttpServletResponse.SC_BAD_REQUEST);
@@ -350,5 +353,10 @@ abstract class AbstractBaseServlet extends SlingAllMethodsServlet {
         }
 
         return false;
+    }
+
+    private void writeSuccessResponse(Resource resultResource, SlingHttpServletResponse response) throws IOException {
+        ValueMap properties = resultResource.adaptTo(ValueMap.class);
+        response.getWriter().print(new JSONObject(properties).toString());
     }
 }

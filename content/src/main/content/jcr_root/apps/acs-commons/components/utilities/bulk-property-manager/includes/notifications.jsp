@@ -18,7 +18,14 @@
   ~ #L%
   --%>
 
-<div class="notifications" ng-show="notifications.length > 0">
+<div class="notifications" ng-show="app.running || notifications.length > 0">
+
+    <div class="alert large info" ng-show="app.running">
+        <strong>RUNNING</strong>
+        <div>Please be patient whi le the process executes.</div>
+    </div>
+
+
     <div ng-repeat="notification in notifications">
         <div class="alert large {{ notification.type }}">
             <button class="close" data-dismiss="alert">&times;</button>

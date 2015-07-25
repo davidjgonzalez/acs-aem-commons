@@ -12,6 +12,7 @@ import org.apache.sling.api.wrappers.ValueMapDecorator;
 
 import javax.jcr.Node;
 import javax.jcr.RepositoryException;
+import javax.jcr.Session;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -24,17 +25,24 @@ public class ResultsUtil {
     public static final String NN_RESULTS = "results";
     public static final String NN_DRY_RUN = "dry-run";
 
-    public static Resource getResultResource(Resource resource, boolean dryRun) {
+    public static Resource getResultResource(Resource resource, boolean dryRun) throws RepositoryException {
         PageManager pageManager = resource.getResourceResolver().adaptTo(PageManager.class);
         Page page = pageManager.getContainingPage(resource);
 
         Resource contentResource = page.getContentResource();
+        ResourceResolver resourceResolver = contentResource.getResourceResolver();
+
+        Node node;
 
         if(dryRun) {
-            return contentResource.getChild(NN_DRY_RUN);
+            node = JcrUtils.getOrCreateByPath(contentResource.getPath() + "/" + NN_DRY_RUN, JcrConstants
+                    .NT_UNSTRUCTURED, resourceResolver.adaptTo(Session.class));
         } else {
-            return contentResource.getChild(NN_RESULTS);
+            node = JcrUtils.getOrCreateByPath(contentResource.getPath() + "/" + NN_RESULTS, JcrConstants
+                    .NT_UNSTRUCTURED, resourceResolver.adaptTo(Session.class));
         }
+
+        return resourceResolver.getResource(node.getPath());
     }
 
     public static String createResults(List<Result> results,

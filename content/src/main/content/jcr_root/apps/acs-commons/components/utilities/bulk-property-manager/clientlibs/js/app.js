@@ -56,8 +56,11 @@ angular.module('acs-commons-bulk-property-manager-app', [])
     $scope.addNotification = function (type, title, message) {
         var timeout = 30000;
 
-        if(type === 'success')  {
-            timeout = timeout / 2;
+        if((typeof message === 'object'
+                && !Array.isArray(message)
+                && message !== null)) {
+
+            message = $scope.responseToString(message);
         }
 
         $scope.notifications.push({
@@ -69,6 +72,16 @@ angular.module('acs-commons-bulk-property-manager-app', [])
         $timeout(function() {
             $scope.notifications.shift();
         }, timeout);
+    };
+
+
+    $scope.responseToString = function(data) {
+        return data.message
+            + '[ Operation: ' + data.operation + ' ] '
+            + '[ Success: ' + data.success + ' ] '
+            + '[ Error: ' + data.error + ' ] '
+            + '[ Noop: ' + data.noop + ' ] '
+            + '[ Total: ' + data.total + ' ] ';
     };
 
 }]);

@@ -67,7 +67,9 @@ public class RemovePropertyServlet extends AbstractBaseServlet {
 
         if (mvm != null && mvm.keySet().contains(propertyName)) {
             if (canModifyProperties(resource)) {
-                mvm.remove(propertyName);
+                if (!params.get(KEY_DRY_RUN, false)) {
+                    mvm.remove(propertyName);
+                }
                 return new Result(Result.Status.SUCCESS, resource.getPath());
             } else {
                 return new Result(Result.Status.ACCESS_ERROR, resource.getPath());

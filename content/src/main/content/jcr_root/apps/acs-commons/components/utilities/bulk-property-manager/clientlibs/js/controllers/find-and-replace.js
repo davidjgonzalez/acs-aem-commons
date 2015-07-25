@@ -24,6 +24,8 @@ angular.module('acs-commons-bulk-property-manager-app')
     .controller('FindAndReplaceCtrl', ['$scope', '$rootScope', '$http', function ($scope, $rootScope, $http) {
 
     $scope.findAndReplace = function (dryRun) {
+        if ($scope.app.running) { return; }
+
         $scope.app.running = true;
 
         $scope.form.dryRun = dryRun;
@@ -36,13 +38,21 @@ angular.module('acs-commons-bulk-property-manager-app')
             success(function (data, status, headers, config) {
                 $scope.result = data;
                 $scope.app.running = false;
-                $rootScope.$broadcast("refreshResults", {});
-                $scope.addNotification('success', 'SUCCESS', 'Find and replace successful. ');
+                if (dryRun) {
+                    $rootScope.$broadcast("refreshDryRunResults", {});
+                } else {
+                    $rootScope.$broadcast("refreshResults", {});
+                }
+
+                $scope.result.message = 'Find and replace successful: ';
+                $scope.addNotification('success', 'SUCCESS', $scope.result);
             }).
             error(function (data, status, headers, config) {
                 $scope.app.running = false;
                 $scope.error = data;
-                $scope.addNotification('error', 'ERROR', data);
+                $scope.addNotification('error', 'ERROR',
+                    data || 'An error occurred. Please review the parameters and review error logs.');
+
             });
     };
 }]);
