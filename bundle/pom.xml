@@ -280,6 +280,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <dependency>
+            <groupId>edu.ucar</groupId>
+            <artifactId>netcdf</artifactId>
+            <version>4.2-min</version>
+        </dependency>
     </dependencies>
 
     <profiles>
