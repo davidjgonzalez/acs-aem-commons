@@ -18,19 +18,27 @@
  * #L%
  */
 
-package com.adobe.acs.commons.workflow.bulk.impl;
+package com.adobe.acs.commons.workflow.bulk.impl.runners;
 
+import com.adobe.acs.commons.workflow.bulk.impl.ResumableResourceVisitor;
 import com.day.cq.workflow.WorkflowException;
 import org.apache.commons.lang.StringUtils;
+import org.apache.felix.scr.annotations.Activate;
+import org.apache.felix.scr.annotations.Deactivate;
+import org.apache.sling.api.resource.LoginException;
 import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.PersistenceException;
 import org.apache.sling.api.resource.Resource;
+import org.apache.sling.api.resource.ResourceResolver;
+import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_INTERVAL;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_JOB_NAME;
@@ -38,6 +46,7 @@ import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_STATE;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_STOPPED_AT;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.STATE_STOPPED;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.STATE_STOPPED_DEACTIVATED;
+import static com.adobe.acs.commons.workflow.bulk.impl.BulkWorkflowEngineImpl.PROP_AUTO_RESUME;
 
 public abstract class AbstractWorkflowRunner {
     private static final Logger log = LoggerFactory.getLogger(AbstractWorkflowRunner.class);
@@ -124,5 +133,76 @@ public abstract class AbstractWorkflowRunner {
     }
 
 
+
+
+
+    @Activate
+    protected final void activate(final Map<String, String> config) {
+        this.jobs = new ConcurrentHashMap<String, String>();
+
+        this.autoResume = PropertiesUtil.toBoolean(config.get(PROP_AUTO_RESUME), DEFAULT_AUTO_RESUME);
+
+        if (this.autoResume) {
+            log.info("Looking for any Bulk Workflow Manager pages to resume processing under: {}", BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH);
+
+            ResourceResolver adminResourceResolver = null;
+
+            try {
+                adminResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
+                final Resource root = adminResourceResolver.getResource(BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH);
+
+                if (root != null) {
+                    final ResumableResourceVisitor visitor = new ResumableResourceVisitor();
+                    visitor.accept(root);
+
+                    final List<Resource> resources = visitor.getResumableResources();
+
+                    log.debug("Found {} resumable resource(s)", resources.size());
+
+                    for (final Resource resource : resources) {
+                        log.info("Automatically resuming bulk workflow at [ {} ]", resource.getPath());
+                        this.resume(resource);
+                    }
+                }
+            } catch (LoginException e) {
+                log.error("Could not obtain resource resolver for finding stopped Bulk Workflow jobs", e);
+            } finally {
+                if (adminResourceResolver != null) {
+                    adminResourceResolver.close();
+                }
+            }
+        }
+    }
+
+    @Deactivate
+    protected final void deactivate(final Map<String, String> config) {
+        ResourceResolver resourceResolver = null;
+
+        try {
+            resourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
+
+            for (final Map.Entry<String, String> entry : jobs.entrySet()) {
+                final String path = entry.getKey();
+                final String jobName = entry.getValue();
+
+                log.debug("Stopping scheduled job at resource [ {} ] and job name [ {} ] by way of de-activation",
+                        path, jobName);
+
+                try {
+                    this.stopDeactivate(resourceResolver.getResource(path));
+                } catch (Exception e) {
+                    this.scheduler.removeJob(jobName);
+                    jobs.remove(path);
+                    log.error("Performed a hard stop for [ {} ] at de-activation due to: ", jobName, e);
+                }
+            }
+        } catch (org.apache.sling.api.resource.LoginException e) {
+            log.error("Could not acquire a resource resolver: {}", e);
+        } finally {
+            if (resourceResolver != null) {
+                resourceResolver.close();
+            }
+        }
+    }
 
 }

@@ -21,7 +21,10 @@
 package com.adobe.acs.commons.workflow.bulk;
 
 
+import org.apache.sling.api.resource.Resource;
+
 public interface BulkWorkflowRunner {
 
+    void start(final Resource configResource);
 
 }

@@ -18,13 +18,14 @@
  * #L%
  */
 
-package com.adobe.acs.commons.workflow.bulk.impl;
+package com.adobe.acs.commons.workflow.bulk.impl.runners;
 
 import com.adobe.acs.commons.workflow.bulk.BulkWorkflowRunner;
 import com.day.cq.workflow.WorkflowException;
 import com.day.cq.workflow.WorkflowService;
 import com.day.cq.workflow.WorkflowSession;
 import com.day.cq.workflow.exec.Workflow;
+import com.day.cq.workflow.model.WorkflowModel;
 import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
@@ -43,6 +44,7 @@ import javax.jcr.Session;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,12 +55,14 @@ import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_BATCH_T
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_COMPLETED_AT;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_CURRENT_BATCH;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_FORCE_TERMINATED_COUNT;
+import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_INTERVAL;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_JOB_NAME;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_PATH;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_STARTED_AT;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_STATE;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_STOPPED_AT;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_WORKFLOW_ID;
+import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.KEY_WORKFLOW_MODEL;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.STATE_COMPLETE;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.STATE_FORCE_TERMINATED;
 import static com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine.STATE_RUNNING;
@@ -380,4 +384,73 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
 
         return count;
     }
+
+
+    /**
+     * Processes the bulk process workflow batch; starts WF's as necessary for each batch item.
+     *
+     * @param resource the jcr:content configuration resource
+     * @throws PersistenceException
+     */
+    private Map<String, String> process(final Resource resource, String workflowModel) throws
+            WorkflowException, PersistenceException, RepositoryException {
+
+        // This method can be invoked by the very first processing of a batch node, or when the batch is complete
+
+        if (log.isDebugEnabled()) {
+            log.debug("Processing batch [ {} ] with workflow model [ {} ]", this.getCurrentBatch(resource).getPath(),
+                    workflowModel);
+        }
+
+        final Session session = resource.getResourceResolver().adaptTo(Session.class);
+        final WorkflowSession workflowSession = workflowService.getWorkflowSession(session);
+        final WorkflowModel model = workflowSession.getModel(workflowModel);
+
+        final Map<String, String> workflowMap = new LinkedHashMap<String, String>();
+
+        final Resource currentBatch = this.getCurrentBatch(resource);
+        final ModifiableValueMap currentProperties = currentBatch.adaptTo(ModifiableValueMap.class);
+
+        Resource batchToProcess;
+        if (currentProperties.get(KEY_STARTED_AT, Date.class) == null) {
+            currentProperties.put(KEY_STARTED_AT, Calendar.getInstance());
+            batchToProcess = currentBatch;
+            log.debug("Virgin batch [ {} ]; preparing to initiate WF.", currentBatch.getPath());
+        } else {
+            batchToProcess = this.advance(resource);
+            log.debug("Completed batch [ {} ]; preparing to advance and initiate WF on next batch [ {} ].",
+                    currentBatch.getPath(), batchToProcess);
+        }
+
+        if (batchToProcess != null) {
+            for (final Resource child : batchToProcess.getChildren()) {
+                final ModifiableValueMap properties = child.adaptTo(ModifiableValueMap.class);
+
+                final String state = properties.get(KEY_STATE, "");
+                final String payloadPath = properties.get(KEY_PATH, String.class);
+
+                if (StringUtils.isBlank(state)
+                        && StringUtils.isNotBlank(payloadPath)) {
+
+                    // Don't try to restart already processed batch items
+
+                    final Workflow workflow = workflowSession.startWorkflow(model,
+                            workflowSession.newWorkflowData("JCR_PATH", payloadPath));
+                    properties.put(KEY_WORKFLOW_ID, workflow.getId());
+                    properties.put(KEY_STATE, workflow.getState());
+
+                    workflowMap.put(child.getPath(), workflow.getId());
+                }
+            }
+        } else {
+            log.error("Cant find the current batch to process.");
+        }
+
+        resource.getResourceResolver().commit();
+
+        log.debug("Bulk workflow batch tracking map: {}", workflowMap);
+        return workflowMap;
+    }
+
+
 }

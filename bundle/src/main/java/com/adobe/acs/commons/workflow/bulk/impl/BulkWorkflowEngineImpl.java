@@ -2,7 +2,7 @@
  * #%L
  * ACS AEM Commons Bundle
  * %%
- * Copyright (C) 2013 Adobe
+ * Copyright (C) 2016 Adobe
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import com.adobe.acs.commons.workflow.bulk.BulkWorkflowRunner;
 import com.day.cq.commons.jcr.JcrConstants;
 import com.day.cq.commons.jcr.JcrUtil;
 import com.day.cq.workflow.WorkflowException;
-import com.day.cq.workflow.WorkflowService;
 import com.day.cq.workflow.WorkflowSession;
 import com.day.cq.workflow.exec.Workflow;
 import com.day.cq.workflow.model.WorkflowModel;
@@ -52,8 +51,6 @@ import javax.jcr.query.Query;
 import javax.jcr.query.QueryManager;
 import javax.jcr.query.QueryResult;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
@@ -92,23 +89,7 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
     private ResourceResolverFactory resourceResolverFactory;
 
 
-    ConcurrentHashMap<String, BulkWorkflowRunner> runners = new ConcurrentHashMap<String, BulkWorkflowRunner>();
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final Resource getCurrentBatch(final Resource resource) {
-        final ValueMap properties = resource.adaptTo(ValueMap.class);
-        final String currentBatch = properties.get(KEY_CURRENT_BATCH, "");
-        final Resource currentBatchResource = resource.getResourceResolver().getResource(currentBatch);
-
-        if (currentBatchResource == null) {
-            log.error("Current batch resource [ {} ] could not be located. Cannot process Bulk workflow.",
-                    currentBatch);
-        }
-        return currentBatchResource;
-    }
+    private ConcurrentHashMap<String, BulkWorkflowRunner> runners = new ConcurrentHashMap<String, BulkWorkflowRunner>();
 
     /**
      * {@inheritDoc}
@@ -213,6 +194,7 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
             properties.put(KEY_TOTAL, total);
             properties.put(KEY_INITIALIZED, true);
             properties.put(KEY_STATE, STATE_NOT_STARTED);
+            properties.put("runner", "com.adobe.acs.commons.worflow.bulk.impl.runners.SyntheticRunner");
 
             resource.getResourceResolver().commit();
 
@@ -222,80 +204,24 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
         }
     }
 
-
-
-
-
-
-
-
-
-
     /**
-     * Processes the bulk process workflow batch; starts WF's as necessary for each batch item.
      *
-     * @param resource the jcr:content configuration resource
-     * @throws PersistenceException
+     * @param configResource
      */
-    private Map<String, String> process(final Resource resource, String workflowModel) throws
-            WorkflowException, PersistenceException, RepositoryException {
+    public final void start(final Resource configResource) {
+        String name = configResource.getValueMap().get("runner", String.class);
+        BulkWorkflowRunner runner = runners.get(name);
 
-        // This method can be invoked by the very first processing of a batch node, or when the batch is complete
-
-        if (log.isDebugEnabled()) {
-            log.debug("Processing batch [ {} ] with workflow model [ {} ]", this.getCurrentBatch(resource).getPath(),
-                    workflowModel);
+        if (runner != null) {
+            runner.start(configResource);
         }
-
-        final Session session = resource.getResourceResolver().adaptTo(Session.class);
-        final WorkflowSession workflowSession = workflowService.getWorkflowSession(session);
-        final WorkflowModel model = workflowSession.getModel(workflowModel);
-
-        final Map<String, String> workflowMap = new LinkedHashMap<String, String>();
-
-        final Resource currentBatch = this.getCurrentBatch(resource);
-        final ModifiableValueMap currentProperties = currentBatch.adaptTo(ModifiableValueMap.class);
-
-        Resource batchToProcess;
-        if (currentProperties.get(KEY_STARTED_AT, Date.class) == null) {
-            currentProperties.put(KEY_STARTED_AT, Calendar.getInstance());
-            batchToProcess = currentBatch;
-            log.debug("Virgin batch [ {} ]; preparing to initiate WF.", currentBatch.getPath());
-        } else {
-            batchToProcess = this.advance(resource);
-            log.debug("Completed batch [ {} ]; preparing to advance and initiate WF on next batch [ {} ].",
-                    currentBatch.getPath(), batchToProcess);
-        }
-
-        if (batchToProcess != null) {
-            for (final Resource child : batchToProcess.getChildren()) {
-                final ModifiableValueMap properties = child.adaptTo(ModifiableValueMap.class);
-
-                final String state = properties.get(KEY_STATE, "");
-                final String payloadPath = properties.get(KEY_PATH, String.class);
-
-                if (StringUtils.isBlank(state)
-                        && StringUtils.isNotBlank(payloadPath)) {
-
-                    // Don't try to restart already processed batch items
-
-                    final Workflow workflow = workflowSession.startWorkflow(model,
-                            workflowSession.newWorkflowData("JCR_PATH", payloadPath));
-                    properties.put(KEY_WORKFLOW_ID, workflow.getId());
-                    properties.put(KEY_STATE, workflow.getState());
-
-                    workflowMap.put(child.getPath(), workflow.getId());
-                }
-            }
-        } else {
-            log.error("Cant find the current batch to process.");
-        }
-
-        resource.getResourceResolver().commit();
-
-        log.debug("Bulk workflow batch tracking map: {}", workflowMap);
-        return workflowMap;
     }
+
+
+
+
+
+
 
     /**
      * Advance to the next batch and update all properties on the current and next batch nodes accordingly.
@@ -362,6 +288,22 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
 
 
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public final Resource getCurrentBatch(final Resource resource) {
+        final ValueMap properties = resource.adaptTo(ValueMap.class);
+        final String currentBatch = properties.get(KEY_CURRENT_BATCH, "");
+        final Resource currentBatchResource = resource.getResourceResolver().getResource(currentBatch);
+
+        if (currentBatchResource == null) {
+            log.error("Current batch resource [ {} ] could not be located. Cannot process Bulk workflow.",
+                    currentBatch);
+        }
+        return currentBatchResource;
+    }
+
 
 
 
@@ -382,74 +324,5 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
         }
 
         return count;
-    }
-
-    @Activate
-    protected final void activate(final Map<String, String> config) {
-        this.jobs = new ConcurrentHashMap<String, String>();
-
-        this.autoResume = PropertiesUtil.toBoolean(config.get(PROP_AUTO_RESUME), DEFAULT_AUTO_RESUME);
-
-        if (this.autoResume) {
-            log.info("Looking for any Bulk Workflow Manager pages to resume processing under: {}", BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH);
-
-            ResourceResolver adminResourceResolver = null;
-
-            try {
-                adminResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
-                final Resource root = adminResourceResolver.getResource(BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH);
-
-                if (root != null) {
-                    final ResumableResourceVisitor visitor = new ResumableResourceVisitor();
-                    visitor.accept(root);
-
-                    final List<Resource> resources = visitor.getResumableResources();
-
-                    log.debug("Found {} resumable resource(s)", resources.size());
-
-                    for (final Resource resource : resources) {
-                        log.info("Automatically resuming bulk workflow at [ {} ]", resource.getPath());
-                        this.resume(resource);
-                    }
-                }
-            } catch (LoginException e) {
-                log.error("Could not obtain resource resolver for finding stopped Bulk Workflow jobs", e);
-            } finally {
-                if (adminResourceResolver != null) {
-                    adminResourceResolver.close();
-                }
-            }
-        }
-    }
-
-    @Deactivate
-    protected final void deactivate(final Map<String, String> config) {
-        ResourceResolver resourceResolver = null;
-
-        try {
-            resourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
-
-            for (final Map.Entry<String, String> entry : jobs.entrySet()) {
-                final String path = entry.getKey();
-                final String jobName = entry.getValue();
-
-                log.debug("Stopping scheduled job at resource [ {} ] and job name [ {} ] by way of de-activation",
-                        path, jobName);
-
-                try {
-                    this.stopDeactivate(resourceResolver.getResource(path));
-                } catch (Exception e) {
-                    this.scheduler.removeJob(jobName);
-                    jobs.remove(path);
-                    log.error("Performed a hard stop for [ {} ] at de-activation due to: ", jobName, e);
-                }
-            }
-        } catch (org.apache.sling.api.resource.LoginException e) {
-            log.error("Could not acquire a resource resolver: {}", e);
-        } finally {
-            if (resourceResolver != null) {
-                resourceResolver.close();
-            }
-        }
     }
 }

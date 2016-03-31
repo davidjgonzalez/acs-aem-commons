@@ -18,7 +18,7 @@
  * #L%
  */
 
-package com.adobe.acs.commons.workflow.bulk.impl;
+package com.adobe.acs.commons.workflow.bulk.impl.runners;
 
 import com.adobe.acs.commons.workflow.bulk.BulkWorkflowRunner;
 import com.day.cq.workflow.WorkflowException;
