@@ -20,8 +20,8 @@
 
 package com.adobe.acs.commons.workflow.bulk.impl;
 
-
 import com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine;
+import com.adobe.acs.commons.workflow.bulk.BulkWorkflowRunner;
 import com.day.cq.commons.jcr.JcrConstants;
 import com.day.cq.commons.jcr.JcrUtil;
 import com.day.cq.workflow.WorkflowException;
@@ -84,8 +84,6 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
             boolValue = DEFAULT_AUTO_RESUME)
     public static final String PROP_AUTO_RESUME = "auto-resume";
 
-    @Reference
-    private WorkflowService workflowService;
 
     @Reference
     private Scheduler scheduler;
@@ -93,7 +91,8 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
     @Reference
     private ResourceResolverFactory resourceResolverFactory;
 
-    private ConcurrentHashMap<String, String> jobs = null;
+
+    ConcurrentHashMap<String, BulkWorkflowRunner> runners = new ConcurrentHashMap<String, BulkWorkflowRunner>();
 
     /**
      * {@inheritDoc}
@@ -223,202 +222,14 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final void start(final Resource resource) {
-        final ModifiableValueMap properties = resource.adaptTo(ModifiableValueMap.class);
 
-        final String jobName = properties.get(KEY_JOB_NAME, String.class);
-        final String workflowModel = properties.get(KEY_WORKFLOW_MODEL, String.class);
-        final String resourcePath = resource.getPath();
-        long interval = properties.get(KEY_INTERVAL, DEFAULT_INTERVAL);
 
-        final Runnable job = new Runnable() {
 
-            private Map<String, String> activeWorkflows = new LinkedHashMap<String, String>();
 
-            public void run() {
-                ResourceResolver adminResourceResolver = null;
-                Resource contentResource = null;
 
-                try {
-                    adminResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
-                    activeWorkflows = getActiveWorkflows(adminResourceResolver, activeWorkflows);
-                    contentResource = adminResourceResolver.getResource(resourcePath);
 
-                    if (contentResource == null) {
-                        log.warn("Bulk workflow process resource [ {} ] could not be found. Removing periodic job.",
-                                resourcePath);
-                        scheduler.removeJob(jobName);
-                    } else if (activeWorkflows.isEmpty()) {
-                        // Either the beginning or the end of a batch process
-                        activeWorkflows = process(contentResource, workflowModel);
-                    } else {
-                        log.debug("Workflows for batch [ {} ] are still active.",
-                                contentResource.adaptTo(ValueMap.class).get(KEY_CURRENT_BATCH, "Missing batch"));
 
-                        final ValueMap properties = contentResource.adaptTo(ValueMap.class);
-                        final int batchTimeout = properties.get(KEY_BATCH_TIMEOUT, 0);
 
-                        final Resource currentBatch = getCurrentBatch(contentResource);
-                        final ModifiableValueMap currentBatchProperties =
-                                currentBatch.adaptTo(ModifiableValueMap.class);
-
-                        final int batchTimeoutCount = currentBatchProperties.get(KEY_BATCH_TIMEOUT_COUNT, 0);
-
-                        if (batchTimeoutCount >= batchTimeout) {
-                            terminateActiveWorkflows(adminResourceResolver,
-                                    contentResource,
-                                    activeWorkflows);
-                            // Next batch will be pulled on next iteration
-                        } else {
-                            // Still withing batch processing range; continue.
-                            currentBatchProperties.put(KEY_BATCH_TIMEOUT_COUNT, batchTimeoutCount + 1);
-                            adminResourceResolver.commit();
-                        }
-                    }
-                } catch (Exception e) {
-                    log.error("Error processing periodic execution: {}", e);
-
-                    try {
-                        if (contentResource != null) {
-                            stop(contentResource, STATE_STOPPED_ERROR);
-                        } else {
-                            scheduler.removeJob(jobName);
-                            log.error("Removed scheduled job [ {} ] due to errors content resource [ {} ] could not "
-                                    + "be found.", jobName, resourcePath);
-                        }
-                    } catch (Exception ex) {
-                        scheduler.removeJob(jobName);
-                        log.error("Removed scheduled job [ {} ] due to errors and could not stop normally.", jobName);
-                    }
-                } finally {
-                    if (adminResourceResolver != null) {
-                        adminResourceResolver.close();
-                    }
-                }
-            }
-        };
-
-        try {
-            final boolean canRunConcurrently = false;
-            scheduler.addPeriodicJob(jobName, job, null, interval, canRunConcurrently);
-            jobs.put(resource.getPath(), jobName);
-
-            log.debug("Added tracking for job [ {} , {} ]", resource.getPath(), jobName);
-            log.info("Periodic job added for [ {} ] every [ {} seconds ]", jobName, interval);
-
-            properties.put(KEY_STATE, STATE_RUNNING);
-            properties.put(KEY_STARTED_AT, Calendar.getInstance());
-
-            resource.getResourceResolver().commit();
-
-        } catch (Exception e) {
-            log.error("Error starting bulk workflow management. {}", e);
-        }
-
-        log.info("Completed starting of Bulk Workflow Manager");
-    }
-
-    /**
-     * Stops the bulk workflow process using the user initiated stop state.
-     *
-     * @param resource the jcr:content configuration resource
-     * @throws PersistenceException
-     */
-    @Override
-    public final void stop(final Resource resource) throws PersistenceException {
-        this.stop(resource, STATE_STOPPED);
-    }
-
-    /**
-     * Stops the bulk workflow process using the OSGi Component deactivated stop state.
-     * <p/>
-     * Allows the system to know to resume this when the OSGi Component is activated.
-     *
-     * @param resource the jcr:content configuration resource
-     * @throws PersistenceException
-     */
-    private void stopDeactivate(final Resource resource) throws PersistenceException {
-        this.stop(resource, STATE_STOPPED_DEACTIVATED);
-    }
-
-    /**
-     * Stops the bulk workflow process.
-     *
-     * @param resource the jcr:content configuration resource
-     * @throws PersistenceException
-     */
-    private void stop(final Resource resource, final String state) throws PersistenceException {
-        final ModifiableValueMap properties = resource.adaptTo(ModifiableValueMap.class);
-        final String jobName = properties.get(KEY_JOB_NAME, String.class);
-
-        log.debug("Stopping job [ {} ]", jobName);
-
-        if (StringUtils.isNotBlank(jobName)) {
-            scheduler.removeJob(jobName);
-            jobs.remove(resource.getPath());
-
-            log.info("Bulk Workflow Manager stopped for [ {} ]", jobName);
-
-            properties.put(KEY_STATE, state);
-            properties.put(KEY_STOPPED_AT, Calendar.getInstance());
-
-            resource.getResourceResolver().commit();
-        } else {
-            log.error("Trying to stop a job without a name from Bulk Workflow Manager resource [ {} ]",
-                    resource.getPath());
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final void resume(final Resource resource) {
-        this.start(resource);
-        log.info("Resumed bulk workflow for [ {} ]", resource.getPath());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public final void resume(final Resource resource, final long interval) throws PersistenceException {
-        final ModifiableValueMap properties = resource.adaptTo(ModifiableValueMap.class);
-        properties.put(KEY_INTERVAL, interval);
-        resource.getResourceResolver().commit();
-
-        this.start(resource);
-        log.info("Resumed bulk workflow for [ {} ] with new interval [ {} ]", resource.getPath(), interval);
-    }
-
-    /**
-     * Updates the bulk workflow process status to be completed.
-     *
-     * @param resource the jcr:content configuration resource
-     * @throws PersistenceException
-     */
-    private void complete(final Resource resource) throws PersistenceException {
-        final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
-        final String jobName = mvm.get(KEY_JOB_NAME, String.class);
-
-        if (StringUtils.isNotBlank(jobName)) {
-            scheduler.removeJob(jobName);
-
-            log.info("Bulk Workflow Manager completed for [ {} ]", jobName);
-
-            mvm.put(KEY_STATE, STATE_COMPLETE);
-            mvm.put(KEY_COMPLETED_AT, Calendar.getInstance());
-
-            resource.getResourceResolver().commit();
-        } else {
-            log.error("Trying to complete a job without a name from Bulk Workflow Manager resource [ {} ]",
-                    resource.getPath());
-        }
-    }
 
     /**
      * Processes the bulk process workflow batch; starts WF's as necessary for each batch item.
@@ -547,146 +358,12 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
         }
     }
 
-    /**
-     * Deletes the Workflow instances for each item in the batch.
-     *
-     * @param batchResource the batch resource
-     * @return the number of workflow instances purged
-     * @throws RepositoryException
-     */
-    private int purge(Resource batchResource) throws RepositoryException {
-        final ResourceResolver resourceResolver = batchResource.getResourceResolver();
-        final List<String> payloadPaths = new ArrayList<String>();
-
-        for (final Resource child : batchResource.getChildren()) {
-            final ModifiableValueMap properties = child.adaptTo(ModifiableValueMap.class);
-            final String workflowId = properties.get(KEY_WORKFLOW_ID, "Missing WorkflowId");
-            final String path = properties.get(KEY_PATH, "Missing Path");
-
-            final Resource resource = resourceResolver.getResource(workflowId);
-            if (resource != null) {
-                final Node node = resource.adaptTo(Node.class);
-                node.remove();
-                payloadPaths.add(path);
-            } else {
-                log.warn("Could not find workflowId at [ {} ] to purge.", workflowId);
-            }
-        }
-
-        if (payloadPaths.size() > 0) {
-            resourceResolver.adaptTo(Session.class).save();
-            log.info("Purged {} workflow instances for payloads: {}",
-                    payloadPaths.size(),
-                    Arrays.toString(payloadPaths.toArray(new String[payloadPaths.size()])));
-        }
-
-        return payloadPaths.size();
-    }
-
-    /**
-     * Retrieves the active workflows for the batch.
-     *
-     * @param resourceResolver the resource resolver
-     * @param workflowMap      the map tracking what batch items are under WF
-     * @return the updated map of which batch items and their workflow state
-     * @throws RepositoryException
-     * @throws PersistenceException
-     */
-    private Map<String, String> getActiveWorkflows(ResourceResolver resourceResolver,
-                                                   final Map<String, String> workflowMap)
-            throws RepositoryException, PersistenceException {
-
-        final Map<String, String> activeWorkflowMap = new LinkedHashMap<String, String>();
-        final WorkflowSession workflowSession =
-                workflowService.getWorkflowSession(resourceResolver.adaptTo(Session.class));
-
-        boolean dirty = false;
-        for (final Map.Entry<String, String> entry : workflowMap.entrySet()) {
-            final String workflowId = entry.getValue();
-
-            final Workflow workflow;
-            try {
-                workflow = workflowSession.getWorkflow(workflowId);
-                if (workflow.isActive()) {
-                    activeWorkflowMap.put(entry.getKey(), workflow.getId());
-                }
-
-                final Resource resource = resourceResolver.getResource(entry.getKey());
-                final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
-
-                if (!StringUtils.equals(mvm.get(KEY_STATE, String.class), workflow.getState())) {
-                    mvm.put(KEY_STATE, workflow.getState());
-                    dirty = true;
-                }
-            } catch (WorkflowException e) {
-                log.error("Could not get workflow with id [ {} ]. {}", workflowId, e);
-            }
-        }
-
-        if (dirty) {
-            resourceResolver.commit();
-        }
-
-        return activeWorkflowMap;
-    }
 
 
-    /**
-     * Terminate active workflows.
-     *
-     * @param resourceResolver
-     * @param contentResource
-     * @param workflowMap
-     * @return number of terminated workflows
-     * @throws RepositoryException
-     * @throws PersistenceException
-     */
-    private int terminateActiveWorkflows(ResourceResolver resourceResolver,
-                                         final Resource contentResource,
-                                         final Map<String, String> workflowMap)
-            throws RepositoryException, PersistenceException {
 
-        final WorkflowSession workflowSession =
-                workflowService.getWorkflowSession(resourceResolver.adaptTo(Session.class));
 
-        boolean dirty = false;
-        int count = 0;
-        for (final Map.Entry<String, String> entry : workflowMap.entrySet()) {
-            final String workflowId = entry.getValue();
 
-            final Workflow workflow;
-            try {
-                workflow = workflowSession.getWorkflow(workflowId);
-                if (workflow.isActive()) {
 
-                    workflowSession.terminateWorkflow(workflow);
-
-                    count++;
-
-                    log.info("Terminated workflow [ {} ]", workflowId);
-
-                    final Resource resource = resourceResolver.getResource(entry.getKey());
-                    final ModifiableValueMap mvm = resource.adaptTo(ModifiableValueMap.class);
-
-                    mvm.put(KEY_STATE, STATE_FORCE_TERMINATED.toUpperCase());
-
-                    dirty = true;
-                }
-
-            } catch (WorkflowException e) {
-                log.error("Could not get workflow with id [ {} ]. {}", workflowId, e);
-            }
-        }
-
-        if (dirty) {
-            final ModifiableValueMap properties = contentResource.adaptTo(ModifiableValueMap.class);
-            properties.put(KEY_FORCE_TERMINATED_COUNT,
-                    properties.get(KEY_FORCE_TERMINATED_COUNT, 0) + count);
-            resourceResolver.commit();
-        }
-
-        return count;
-    }
 
 
     /**
