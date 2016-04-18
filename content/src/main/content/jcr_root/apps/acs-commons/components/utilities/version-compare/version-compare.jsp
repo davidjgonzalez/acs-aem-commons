@@ -45,7 +45,7 @@
 
                     <div acs-coral-alert data-alert-type="notice"
                         data-alert-title="Notice"
-                        data-alert-message="Please note, the current state of this tool only shows linear version paths."></div>
+                        data-alert-message="Please note, the current status of this tool only shows linear version paths."></div>
 
                         <h1 acs-coral-heading>Version Compare</h1>
                         

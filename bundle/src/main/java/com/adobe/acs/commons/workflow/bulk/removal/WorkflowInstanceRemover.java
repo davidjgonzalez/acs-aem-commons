@@ -40,7 +40,7 @@ public interface WorkflowInstanceRemover {
      * @param resourceResolver the resource resolver; must have access to read/delete workflow instances
      * @param modelIds WF Models to remove
      * @param statuses WF Statuses to remove
-     * @param payloads Regexes; WF Payloads to remove
+     * @param payloads Regexes; WF PayloadGroup to remove
      * @param olderThan UTC time in milliseconds; only delete WF's started after this time
      * @return the number of WF instances removed
      */
@@ -57,7 +57,7 @@ public interface WorkflowInstanceRemover {
      * @param resourceResolver the resource resolver; must have access to read/delete workflow instances
      * @param modelIds WF Models to remove
      * @param statuses WF Statuses to remove
-     * @param payloads Regexes; WF Payloads to remove
+     * @param payloads Regexes; WF PayloadGroup to remove
      * @param olderThan UTC time in milliseconds; only delete WF's started after this time
      * @param batchSize number of workflow instances to delete per JCR save
      * @return the number of WF instances removed
@@ -76,7 +76,7 @@ public interface WorkflowInstanceRemover {
      * @param resourceResolver the resource resolver; must have access to read/delete workflow instances
      * @param modelIds WF Models to remove
      * @param statuses WF Statuses to remove
-     * @param payloads Regexes; WF Payloads to remove
+     * @param payloads Regexes; WF PayloadGroup to remove
      * @param olderThan UTC time in milliseconds; only delete WF's started after this time
      * @param batchSize number of workflow instances to delete per JCR save
      * @param maxDurationInMins max number of mins the workflow removal process is allowed to run

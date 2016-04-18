@@ -18,10 +18,10 @@
  * #L%
  */
 
-package com.adobe.acs.commons.workflow.bulk.impl.servlets;
+package com.adobe.acs.commons.workflow.bulk.execution.impl.servlets;
 
-import com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine;
-
+import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowEngine;
+import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.SlingHttpServletRequest;
@@ -33,7 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletException;
-
 import java.io.IOException;
 
 /**
@@ -41,10 +40,10 @@ import java.io.IOException;
  */
 @SuppressWarnings("serial")
 @SlingServlet(
-        methods = { "POST" },
-        resourceTypes = { BulkWorkflowEngine.SLING_RESOURCE_TYPE },
-        selectors = { "resume" },
-        extensions = { "json" }
+        methods = {"POST"},
+        resourceTypes = {BulkWorkflowEngine.SLING_RESOURCE_TYPE},
+        selectors = {"resume"},
+        extensions = {"json"}
 )
 public class ResumeServlet extends SlingAllMethodsServlet {
     private static final Logger log = LoggerFactory.getLogger(ResumeServlet.class);
@@ -63,12 +62,12 @@ public class ResumeServlet extends SlingAllMethodsServlet {
         try {
             params = new JSONObject(request.getParameter("params"));
 
-            final long interval = params.optLong(BulkWorkflowEngine.KEY_INTERVAL, -1);
+            final long interval = params.optLong("interval", -1);
 
             if (interval < 1) {
-                bulkWorkflowEngine.resume(request.getResource());
+                bulkWorkflowEngine.resume(request.getResource().adaptTo(Config.class));
             } else {
-                bulkWorkflowEngine.resume(request.getResource(), interval);
+                bulkWorkflowEngine.resume(request.getResource().adaptTo(Config.class));
             }
 
             response.sendRedirect(request.getResourceResolver().map(request, request.getResource().getPath()) + ".status.json");

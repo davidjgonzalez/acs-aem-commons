@@ -18,29 +18,28 @@
  * #L%
  */
 
-package com.adobe.acs.commons.workflow.bulk.impl;
+package com.adobe.acs.commons.workflow.bulk.execution.impl;
 
-import com.adobe.acs.commons.workflow.bulk.BulkWorkflowEngine;
+import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
 import com.day.cq.commons.jcr.JcrConstants;
 import com.day.cq.wcm.api.NameConstants;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.sling.api.resource.AbstractResourceVisitor;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ValueMap;
-import org.apache.sling.jcr.resource.JcrResourceConstants;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ResumableResourceVisitor extends AbstractResourceVisitor {
+public class ConfigResourceVisitor extends AbstractResourceVisitor {
 
     private static final String BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH = "/etc/acs-commons/bulk-workflow-manager";
     private static final String NT_PAGE_CONTENT = "cq:PageContent";
-    private static final String[] ACCEPTED_PRIMARY_TYPES = new String[] { NameConstants.NT_PAGE, NT_PAGE_CONTENT };
-    private List<Resource> resources = new ArrayList<Resource>();
+    private static final String[] ACCEPTED_PRIMARY_TYPES = new String[]{NameConstants.NT_PAGE, NT_PAGE_CONTENT};
+    private List<Config> configurations = new ArrayList<Config>();
 
-    public final List<Resource> getResumableResources() {
-        return this.resources;
+    public final List<Config> getResumableConfigs() {
+        return this.configurations;
     }
 
     @Override
@@ -60,15 +59,16 @@ public class ResumableResourceVisitor extends AbstractResourceVisitor {
     @Override
     protected void visit(final Resource resource) {
         final ValueMap properties = resource.adaptTo(ValueMap.class);
-        
+
         // Ensure jcr:primaryType = cq:PageContent and 
         // that the sling:resourceType is that of Bulk Workflow Manager Page and
         // that the Bulk Workflow Manager Page has been marked as "Stopped by Bundle Deactivation"
-        if(NT_PAGE_CONTENT.equals(properties.get(JcrConstants.JCR_PRIMARYTYPE, String.class)) &&
-                BulkWorkflowEngine.SLING_RESOURCE_TYPE.equals(properties.get(JcrResourceConstants.SLING_RESOURCE_TYPE_PROPERTY, String.class)) &&
-                BulkWorkflowEngine.STATE_STOPPED_DEACTIVATED.equals(properties.get(BulkWorkflowEngine.KEY_STATE, String.class))) {
+        if (NT_PAGE_CONTENT.equals(properties.get(JcrConstants.JCR_PRIMARYTYPE, String.class))) {
+            Config config = resource.adaptTo(Config.class);
 
-                this.resources.add(resource);
+            if (config != null) {
+                this.configurations.add(config);
+            }
         }
 
         return;

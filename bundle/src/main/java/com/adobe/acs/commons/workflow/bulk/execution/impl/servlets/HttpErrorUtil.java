@@ -18,7 +18,7 @@
  * #L%
  */
 
-package com.adobe.acs.commons.workflow.bulk.impl.servlets;
+package com.adobe.acs.commons.workflow.bulk.execution.impl.servlets;
 
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.commons.json.JSONException;

@@ -230,7 +230,7 @@ public class WorkflowInstanceRemoverScheduler implements Runnable {
         iw.title("Workflow Instance Removal Configuration");
         iw.message("Workflow status: {}", statuses);
         iw.message("Workflow models: {}", models);
-        iw.message("Payloads: {}", Arrays.asList(payloadsArray));
+        iw.message("PayloadGroup: {}", Arrays.asList(payloadsArray));
         iw.message("Older than: {}", olderThan);
         iw.message("Batch size: {}", batchSize);
         iw.message("Max Duration (minutes): {}", maxDuration);

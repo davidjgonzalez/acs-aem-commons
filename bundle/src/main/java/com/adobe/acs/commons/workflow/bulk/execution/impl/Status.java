@@ -18,13 +18,19 @@
  * #L%
  */
 
-package com.adobe.acs.commons.workflow.bulk;
+package com.adobe.acs.commons.workflow.bulk.execution.impl;
 
+public enum Status {
+    NOT_STARTED,
+    FAILED,
+    STOPPED_ERROR,
+    STOPPED_DEACTIVATED,
+    STOPPED,
 
-import org.apache.sling.api.resource.Resource;
-
-public interface BulkWorkflowRunner {
-
-    void start(final Resource configResource);
-
+    ABORTED,
+    COMPLETED,
+    RUNNING,
+    SUSPENDED,
+    TERMINATED,
+    FORCE_TERMINATED
 }

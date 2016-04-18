@@ -24,7 +24,7 @@
     pageContext.setAttribute("text", properties.get("text", String.class));
 
 %><wcmmode:edit>
-    <%-- Updating underlying state on GET request, but ONLY on AEM Author (Edit Mode).
+    <%-- Updating underlying status on GET request, but ONLY on AEM Author (Edit Mode).
          Typically this is not done, but required to clean up removed paragraph resources --%>
     <% longFormTextComponent.mergeParagraphSystems(resource, textParagraphs.length); %>
 </wcmmode:edit>

@@ -82,7 +82,7 @@ Select
       - emptyText (String) i18n
       
       /**
-       * Indicates if the field is in disabled state.
+       * Indicates if the field is in disabled status.
        */
       - disabled (Boolean)
       
@@ -145,7 +145,7 @@ Select
       - value (StringEL)
       
       /**
-       * Indicates if the option is in disabled state.
+       * Indicates if the option is in disabled status.
        */
       - disabled (Boolean)
       

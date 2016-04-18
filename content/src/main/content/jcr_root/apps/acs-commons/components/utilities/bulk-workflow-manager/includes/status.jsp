@@ -18,7 +18,7 @@
   ~ #L%
   --%>
 <%-- Status Boxes --%>
-<div    ng-show="data.status.state === 'running'"
+<div    ng-show="data.status.status === 'RUNNING'"
         acs-coral-alert
         data-alert-type="info"
         data-alert-size="large"
@@ -26,7 +26,7 @@
     Please be patient while Bulk Workflow executes.
 </div>
 
-<div    ng-show="data.status.state === 'stopped'"
+<div    ng-show="data.status.status === 'STOPPED'"
         acs-coral-alert
         data-alert-type="notice"
         data-alert-size="large"
@@ -35,7 +35,7 @@
     Press the &quot;Resume Bulk Worklfow&quot; button below to resume bulk workflow processing.
 </div>
 
-<div    ng-show="data.status.state === 'complete'"
+<div    ng-show="data.status.status === 'COMPLETED'"
         acs-coral-alert
         data-alert-type="success"
         data-alert-size="large"
@@ -55,13 +55,11 @@
 
     <div class="acs-column-50-50">
         <ul acs-coral-list>
-            <li>Status: <span style="text-transform: capitalize;">{{ data.status.state }}</span></li>
-            <li>Total: {{ data.status.total }}</li>
-            <li>Complete: {{ data.status.complete }}</li>
-            <li>Remaining: {{ data.status.remaining }}</li>
-            <li>Current Batch: {{ data.status.currentBatch }}</li>
-            <li>Current Batch Timeout: {{ data.status.batchTimeoutCount }}
-                    of {{ data.status.batchTimeout }}</li>
+            <li>Status: <span style="text-transform: capitalize;">{{ data.status.status }}</span></li>
+            <li>Total: {{ data.status.totalCount }}</li>
+            <li>Complete: {{ data.status.completedCount }}</li>
+            <li>Failed: {{ data.status.failedCount }}</li>
+            <li>Remaining: {{ data.status.remainingCount }}</li>
 
             <li ng-show="data.status.startedAt">Started At: {{ data.status.startedAt }}</li>
             <li ng-show="data.status.stoppedAt && !data.status.completedAt">Stopped At: {{ data.status.stoppedAt }}</li>
@@ -71,13 +69,11 @@
 
     <div class="acs-column-50-50">
         <ul acs-coral-list>
-            <li>Batch Size: {{ data.status.batchSize }}</li>
-            <li>Batch Timeout: {{ data.status.batchTimeout * data.status.interval }} seconds
-                ( multiplier: {{ data.status.batchTimeout }} )
-            </li>
-            <li>Batch Interval: {{ data.status.interval }} seconds</li>
-            <li>Workflow Model: {{ data.status.workflowModel }}</li>
-            <li>Purge Workflow: {{ data.status.purgeWorkflow }}</li>
+            <li>Batch size: {{ data.status.batchSize }}</li>
+            <li>Workflow timeout: {{ data.status.timeout }} seconds</li>
+            <li>Process interval: {{ data.status.interval }} seconds</li>
+            <li>Workflow model: {{ data.status.workflowModel }}</li>
+            <li>Purge workflow: {{ data.status.purgeWorkflow }}</li>
         </ul>
     </div>
 
@@ -87,9 +83,9 @@
 
 <%-- Progress Bar --%>    
 
-<div class="coral-Progress acs-section"
+<div class="coral-Progress acs-section acs-progress-bar"
      ng-show="data.status.percentComplete || data.status.percentComplete === 0">
-    <div class="coral-Progress-bar acs-progress-bar">
+    <div class="coral-Progress-bar">
         <div class="coral-Progress-status"
              style="width: {{ data.status.percentComplete }}%;"></div>
      </div>
@@ -104,18 +100,18 @@
     <button ng-click="stop()"
             role="button"
             class="coral-Button coral-Button--warning"
-            ng-show="data.status.state === 'running'"
+            ng-show="data.status.status === 'RUNNING'"
             class="warning">Stop Bulk Workflow</button>
 
     <button ng-click="resume()"
             role="button"
             class="coral-Button coral-Button--primary"
-            ng-show="data.status.state.indexOf('stopped') === 0"
+            ng-show="data.status.status.indexOf('STOPPED') === 0"
             style="float: left;"
             class="primary">Resume Bulk Workflow</button>
 
     <div   style="margin-left: 12.5rem; line-height: 2.5rem"
-           ng-show="data.status.state.indexOf('stopped') === 0">
+           ng-show="data.status.status.indexOf('STOPPED') === 0">
         
         Update batch interval to
 
@@ -131,7 +127,7 @@
 
 <%-- Status Table --%>
 
-<section  ng-show="data.status.state === 'running'">
+<section  ng-show="data.status.status === 'RUNNING'">
     <hr/>
 
     <h3 acs-coral-heading>Current batch</h3>
@@ -157,8 +153,8 @@
             </tr>
         </thead>
         <tbody>
-            <tr class="coral-Table-row" ng-repeat="item in data.status.currentBatchItems ">
-                <td class="coral-Table-cell {{ item.state }}">{{ item.state || 'NOT STARTED' }}</td>
+            <tr class="coral-Table-row" ng-repeat="item in data.status.activePayloads ">
+                <td class="coral-Table-cell {{ item.status }}">{{ item.status || 'NOT STARTED' }}</td>
                 <td class="coral-Table-cell">{{ item.path }}</td>
             </tr>
         </tbody>
