@@ -31,7 +31,6 @@ import com.day.cq.workflow.WorkflowService;
 import com.day.cq.workflow.WorkflowSession;
 import com.day.cq.workflow.exec.Workflow;
 import com.day.cq.workflow.model.WorkflowModel;
-import org.apache.commons.lang.ArrayUtils;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
@@ -39,7 +38,6 @@ import org.apache.sling.api.resource.PersistenceException;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ResourceResolverFactory;
-import org.apache.sling.commons.scheduler.Job;
 import org.apache.sling.commons.scheduler.ScheduleOptions;
 import org.apache.sling.commons.scheduler.Scheduler;
 import org.slf4j.Logger;
@@ -49,17 +47,8 @@ import javax.jcr.Node;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-
-import static com.adobe.acs.commons.workflow.bulk.execution.model.Workspace.PN_ACTIVE_PAYLOAD_GROUP_PATHS;
-import static com.adobe.acs.commons.workflow.bulk.execution.model.Workspace.PN_ACTIVE_PAYLOAD_PATHS;
-import static com.day.cq.wcm.foundation.List.log;
-import static org.osgi.util.measurement.Unit.s;
-import static sun.security.krb5.SCDynamicStoreConfig.getConfig;
 
 @Component
 @Service
@@ -355,7 +344,7 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
             return onboardNextPayloadGroup(candidatePayloadGroup);
         } else {
             // Found a good payload group! has atleast 1 payload that can be onboarded
-            workspace.addActivePayloadGroupPath(payloadGroup.getPath());
+            workspace.addActivePayloadGroup(payloadGroup);
             return candidatePayloadGroup;
         }
     }
