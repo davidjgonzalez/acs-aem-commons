@@ -35,7 +35,9 @@ import javax.inject.Inject;
 public class Config {
     private static final Logger log = LoggerFactory.getLogger(Config.class);
 
-    private Resource resource;
+    private final Resource resource;
+
+    private final Workspace workspace;
 
     @Inject
     @Default(values = "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl")
@@ -77,10 +79,9 @@ public class Config {
     @Optional
     private String workflowModel;
 
-    private Workspace workspace;
-
     public Config(Resource resource) {
         this.resource = resource;
+        this.workspace = this.resource.getChild(Workspace.NN_WORKSPACE).adaptTo(Workspace.class);
     }
 
     public int getTimeout() {
@@ -136,10 +137,6 @@ public class Config {
     }
 
     public Workspace getWorkspace() {
-        if (workspace == null) {
-            workspace = this.resource.getChild(Workspace.NN_WORKSPACE).adaptTo(Workspace.class);
-        }
-
         return workspace;
     }
 
