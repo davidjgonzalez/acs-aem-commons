@@ -63,16 +63,15 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
     public final Runnable run(final Config jobConfig) {
         final Runnable job = new Runnable() {
             private String configPath = jobConfig.getPath();
-            private Workspace workspace = jobConfig.getWorkspace();
 
             public void run() {
-                ResourceResolver adminResourceResolver = null;
+                ResourceResolver jobResourceResolver = null;
                 Resource configResource = null;
                 long start = System.currentTimeMillis();
 
                 try {
-                    adminResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
-                    configResource = adminResourceResolver.getResource(configPath);
+                    jobResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
+                    configResource = jobResourceResolver.getResource(configPath);
                     Config config = configResource.adaptTo(Config.class);
                     Workspace workspace = config.getWorkspace();
 
@@ -80,7 +79,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                         return;
                     }
 
-                    adminResourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("event-user-data:changedByWorkflowProcess");
+                    jobResourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("changedByWorkflowProcess");
 
                     boolean ignoreNonProcessSteps = true;
                     SyntheticWorkflowModel model;
@@ -88,7 +87,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                     try {
                         // Get the model once
                         model = swr.getSyntheticWorkflowModel(
-                                adminResourceResolver,
+                                jobResourceResolver,
                                 config.getWorkflowModelId(),
                                 ignoreNonProcessSteps);
 
@@ -99,7 +98,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                         List<Payload> payloads = onboardCurrentPayloadGroup(workspace);
 
                         do {
-                            // Saftey check; if payloads comes in null then immediately break from loop as there is no work to do
+                            // Safety check; if payloads comes in null then immediately break from loop as there is no work to do
                             if(payloads == null || workspace.isStopped()) {
                                 log.info("Bulk Synthetic Workflow run has been stopped.");
                                 break;
@@ -109,7 +108,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                                 log.info("Processing payload [ {} ~> {} ]", payload.getPath(), payload.getPayloadPath());
 
                                 try {
-                                    swr.execute(adminResourceResolver,
+                                    swr.execute(jobResourceResolver,
                                             payload.getPayloadPath(),
                                             model,
                                             saveAfterEachWFProcess,
@@ -129,7 +128,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
 
                             // Save the Payload Group batch
                             long batchStart = System.currentTimeMillis();
-                            adminResourceResolver.commit();
+                            jobResourceResolver.commit();
 
                             if (log.isDebugEnabled()) {
                                 log.debug("Save last batch of [ {} ] payloads in {} ms", config.getBatchSize(), System.currentTimeMillis() - batchStart);
@@ -152,8 +151,8 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                             complete(workspace);
                         }
 
-                        if (adminResourceResolver.hasChanges()) {
-                            adminResourceResolver.commit();
+                        if (jobResourceResolver.hasChanges()) {
+                            jobResourceResolver.commit();
                         }
 
                         log.info("Grand total of [ {} ] payloads saved in {} ms", total, System.currentTimeMillis() - start);
@@ -161,12 +160,12 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                         log.error("Error processing Bulk Synthetic Workflow execution.", e);
                     }
                 } catch (RepositoryException e) {
-                    log.error("Error processing Bulk Synthetic Workflow exection.", e);
+                    log.error("Error processing Bulk Synthetic Workflow execution.", e);
                 } catch (LoginException e) {
-                    log.error("Error processing Bulk Synthetic Workflow exection.", e);
+                    log.error("Error processing Bulk Synthetic Workflow execution.", e);
                 } finally {
-                    if (adminResourceResolver != null) {
-                        adminResourceResolver.close();
+                    if (jobResourceResolver != null) {
+                        jobResourceResolver.close();
                     }
                 }
             }
@@ -191,6 +190,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                     return null;
                 }
 
+                Workspace workspace = payloadGroup.getWorkspace();
                 List<Payload> payloads = payloadGroup.getPayloads();
 
                 if (payloads.size() > 0) {
@@ -201,7 +201,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                     }
                 }
 
-                // Commit here so the status pulling can see what is being processed
+                // Commit here so the status polling can see what is being processed
                 workspace.commit();
 
                 return payloads;
