@@ -22,10 +22,6 @@ package com.adobe.acs.commons.workflow.bulk.execution.model;
 
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowRunner;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
-import com.day.cq.workflow.WorkflowException;
-import com.day.cq.workflow.WorkflowService;
-import com.day.cq.workflow.WorkflowSession;
-import com.day.cq.workflow.exec.Workflow;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.EnumUtils;
@@ -41,9 +37,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
-import javax.jcr.Node;
-import javax.jcr.RepositoryException;
-import javax.jcr.Session;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
@@ -58,9 +51,9 @@ import java.util.List;
 public class Workspace {
     private static final Logger log = LoggerFactory.getLogger(Workspace.class);
 
-    public static final String PN_ACTIVE_PAYLOAD_GROUP_PATHS = "activePayloadGroups";
+    public static final String PN_ACTIVE_PAYLOAD_GROUPS = "activePayloadGroups";
 
-    public static final String PN_ACTIVE_PAYLOAD_PATHS = "activePayloads";
+    public static final String PN_ACTIVE_PAYLOADS = "activePayloads";
 
     public static final String NN_WORKSPACE = "workspace";
 
@@ -94,9 +87,6 @@ public class Workspace {
     @Inject
     @Optional
     private String jobName;
-
-    @Inject
-    private WorkflowService workflowService;
 
     @Inject
     private ResourceResolver resourceResolver;
@@ -140,110 +130,24 @@ public class Workspace {
     @Inject
     @Optional
     private Calendar completedAt;
-    private String[] activePayloadGroupPaths;
-
 
     public Workspace(Resource resource) {
         this.resource = resource;
         this.properties = resource.adaptTo(ModifiableValueMap.class);
-        this.config = resource.getParent().adaptTo(Config.class);
         this.jobName = "acs-commons@bulk-workflow-execution:/" + this.resource.getPath();
     }
 
     @PostConstruct
     protected void init() throws Exception {
-        for(BulkWorkflowRunner candidateRunner : runners) {
-            if (StringUtils.equals(config.getRunnerType(), candidateRunner.getClass().getCanonicalName())) {
-                runner = candidateRunner;
+        this.config = resource.getParent().adaptTo(Config.class);
+
+        for(BulkWorkflowRunner candidate : runners) {
+            if (StringUtils.equals(config.getRunnerType(), candidate.getClass().getCanonicalName())) {
+                runner = candidate;
                 break;
             }
         }
     }
-
-    /**
-     * Operations
-     **/
-
-    /*
-
-    public Payload onboardNextPayload() {
-        long start = System.currentTimeMillis();
-
-        List<PayloadGroup> payloadGroups = getActivePayloadGroups();
-
-        for (PayloadGroup payloadGroup : payloadGroups) {
-            Payload payload = payloadGroup.getNextPayload();
-
-            if (payload != null && !payload.isOnboarded()) {
-                // Onboard this payload as it hasnt been onboarded yet
-                addActivePayload(payload);
-
-                if (log.isDebugEnabled()) {
-                    log.debug("Took {} ms to onboard next payload", System.currentTimeMillis() - start);
-                }
-                return payload;
-            }
-        }
-
-        // No payloads in the active payload groups are eligible for onboarding
-
-        PayloadGroup nextPayloadGroup = null;
-        for (PayloadGroup payloadGroup : payloadGroups) {
-            nextPayloadGroup = onboardNextPayloadGroup(payloadGroup);
-
-            if (nextPayloadGroup != null) {
-                Payload payload = nextPayloadGroup.getNextPayload();
-                if (payload == null) {
-                    // all done! empty group
-                }
-
-                addActivePayloadGroup(payloadGroup);
-                addActivePayload(payload);
-
-                if (log.isDebugEnabled()) {
-                    log.debug("Took {} ms to onboard next payload", System.currentTimeMillis() - start);
-                }
-
-                return payload;
-            } else {
-                log.debug("Could not find a next payload group for [ {} ]", payloadGroup.getPath());
-            }
-        }
-
-        if (log.isDebugEnabled()) {
-            log.debug("Took {} ms to onboard next payload", System.currentTimeMillis() - start);
-        }
-        return null;
-    }
-
-    public PayloadGroup onboardNextPayloadGroup(PayloadGroup payloadGroup) {
-        // Assumes a next group should be onboarded
-        // This method is not responsible for removing items from the activePayloadGroups
-
-        if (payloadGroup == null) {
-            return null;
-        }
-
-        PayloadGroup candidatePayloadGroup = payloadGroup.getNextPayloadGroup();
-
-        if (candidatePayloadGroup == null) {
-            // payloadGroup is the last! nothing to do!
-            return null;
-        } else if (ArrayUtils.contains(activePayloadGroups, candidatePayloadGroup.getPath())
-                || candidatePayloadGroup.getNextPayload() == null) {
-            // Already processing the next group, use *that* group's next group
-            // OR there is nothing left in that group to process...
-
-            // recursive call..
-            return onboardNextPayloadGroup(candidatePayloadGroup);
-        } else {
-            // Found a good payload group! has atleast 1 payload that can be onboarded
-            ArrayUtils.add(activePayloadGroups, payloadGroup.getPath());
-            return candidatePayloadGroup;
-        }
-    }
-
-    */
 
     /**
      * Getters
@@ -273,6 +177,8 @@ public class Workspace {
     }
 
     public Status getStatus() {
+        // Refresh state before getting the status.
+        // Note, this gets the value from the session state, and not the cached Sling Model value as this value can change over the life of the SlingModel.
         resourceResolver.refresh();
         status = resource.getValueMap().get(PN_STATUS, Status.NOT_STARTED.toString());
         return EnumUtils.getEnum(Status.class, status);
@@ -300,6 +206,17 @@ public class Workspace {
                 || Status.STOPPED_ERROR.equals(getStatus());
     }
 
+    public Config getConfig() {
+        return config;
+    }
+
+    public ResourceResolver getResourceResolver() {
+        return resourceResolver;
+    }
+
+    public boolean isActive(PayloadGroup payloadGroup) {
+        return ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath());
+    }
 
     /**
      * Setters
@@ -335,11 +252,13 @@ public class Workspace {
     }
 
     public void incrementComplete() {
-        properties.put(PN_COUNT_COMPLETE, properties.get(PN_COUNT_COMPLETE, 0) + 1);
+        this.completeCount++;
+        properties.put(PN_COUNT_COMPLETE, this.completeCount);
     }
 
     public void incrementFailure() {
-        properties.put(PN_COUNT_FAILURE, properties.get(PN_COUNT_FAILURE, 0) + 1);
+        this.failureCount++;
+        properties.put(PN_COUNT_FAILURE, this.failureCount);
     }
 
     /**
@@ -349,7 +268,7 @@ public class Workspace {
     public void addActivePayload(Payload payload) {
         if (!ArrayUtils.contains(activePayloads, payload.getPath())) {
             activePayloads = (String[]) ArrayUtils.add(activePayloads, payload.getPath());
-            properties.put(PN_ACTIVE_PAYLOAD_PATHS, activePayloads);
+            properties.put(PN_ACTIVE_PAYLOADS, activePayloads);
 
             addActivePayloadGroup(payload.getPayloadGroup());
         }
@@ -358,10 +277,13 @@ public class Workspace {
     public void removeActivePayload(Payload payload) {
         if (ArrayUtils.contains(activePayloads, payload.getPath())) {
             activePayloads = (String[]) ArrayUtils.removeElement(activePayloads, payload.getPath());
-            properties.put(PN_ACTIVE_PAYLOAD_PATHS, activePayloads);
+            properties.put(PN_ACTIVE_PAYLOADS, activePayloads);
         }
     }
 
+    /**
+     * @return a list of the payloads that are being actively processed by bulk workflow manager.
+     */
     public List<Payload> getActivePayloads() {
         List<Payload> payloads = new ArrayList<Payload>();
 
@@ -378,6 +300,9 @@ public class Workspace {
         return payloads;
     }
 
+    /**
+     * @return a list of the payload groups that have atleast 1 payload being process by bulk workflow manager.
+     */
     public List<PayloadGroup> getActivePayloadGroups() {
         List<PayloadGroup> payloadGroups = new ArrayList<PayloadGroup>();
 
@@ -398,47 +323,33 @@ public class Workspace {
         return payloadGroups;
     }
 
+    /**
+     * Adds the payload group to the list of active payload groups.
+     * @param payloadGroup the payload group to add as active
+     */
     public void addActivePayloadGroup(PayloadGroup payloadGroup) {
         if (!ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath())) {
             activePayloadGroups = (String[]) ArrayUtils.add(activePayloadGroups, payloadGroup.getPath());
-            properties.put(PN_ACTIVE_PAYLOAD_GROUP_PATHS, activePayloadGroups);
+            properties.put(PN_ACTIVE_PAYLOAD_GROUPS, activePayloadGroups);
         }
     }
 
+    /**
+     * Removes the payload group from the list of active payload groups.
+     * @param payloadGroup the payload group to remove from the active list.
+     */
     public void removeActivePayloadGroup(PayloadGroup payloadGroup) {
         if (ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath())) {
             activePayloadGroups = (String[]) ArrayUtils.removeElement(activePayloadGroups, payloadGroup.getPath());
-            properties.put(PN_ACTIVE_PAYLOAD_GROUP_PATHS, activePayloadGroups);
+            properties.put(PN_ACTIVE_PAYLOAD_GROUPS, activePayloadGroups);
         }
     }
 
-    public Config getConfig() {
-        if (config == null) {
-            config = this.resource.getParent().adaptTo(Config.class);
-        }
-
-        return config;
-    }
-
-    public ResourceResolver getResourceResolver() {
-        return resourceResolver;
-    }
-
+    /**
+     * Commit the changes for this bulk workflow manager execution.
+     * @throws PersistenceException
+     */
     public void commit() throws PersistenceException {
         config.commit();
-    }
-
-    public void addActivePayloadPath(String path) {
-        activePayloads = (String[]) ArrayUtils.add(activePayloads, path);
-        properties.put(PN_ACTIVE_PAYLOAD_PATHS, activePayloads);
-    }
-
-    public void addActivePayloadGroupPath(String path) {
-        activePayloadGroups = (String[]) ArrayUtils.add(activePayloadGroupPaths, path);
-        properties.put(PN_ACTIVE_PAYLOAD_GROUP_PATHS, activePayloadGroupPaths);
-    }
-
-    public boolean isActive(PayloadGroup candidatePayloadGroup) {
-        return ArrayUtils.contains(activePayloadGroups, candidatePayloadGroup.getPath());
     }
 }
