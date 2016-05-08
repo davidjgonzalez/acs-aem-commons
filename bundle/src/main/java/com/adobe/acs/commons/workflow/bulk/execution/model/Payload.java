@@ -39,8 +39,6 @@ import org.apache.sling.models.annotations.Optional;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
-import javax.jcr.Node;
-import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 
 import static com.day.cq.wcm.foundation.List.log;
@@ -66,13 +64,13 @@ public class Payload {
     @Optional
     private String workflowInstanceId;
 
-    public Payload(Resource resource) {
-        this.resource = resource;
+    @PostConstruct
+    public void activate() {
+        properties = resource.adaptTo(ModifiableValueMap.class);
     }
 
-    @PostConstruct
-    public void init() {
-        properties = resource.adaptTo(ModifiableValueMap.class);
+    public Payload(Resource resource) {
+        this.resource = resource;
     }
 
     public ResourceResolver getResourceResolver() {
@@ -105,7 +103,7 @@ public class Payload {
         }
 
         if (!StringUtils.equals(status, workflow.getState())) {
-            // Status is different, so update
+            // Status is    different, so update
             setStatus(EnumUtils.getEnum(Status.class, workflow.getState()));
         }
     }
