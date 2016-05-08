@@ -34,7 +34,7 @@ import java.util.List;
 public class PayloadGroup {
     private static final Logger log = LoggerFactory.getLogger(PayloadGroup.class);
 
-    private Resource resource;
+    private final Resource resource;
 
     @Inject
     @Optional
@@ -44,10 +44,23 @@ public class PayloadGroup {
         this.resource = resource;
     }
 
+    /**
+     * @return the JCR path of the PayloadGroup resource.
+     */
     public String getPath() {
         return this.resource.getPath();
     }
 
+    /**
+     * @return the Workspace this payload group belongs to.
+     */
+    public Workspace getWorkspace() {
+        return resource.getParent().adaptTo(Workspace.class);
+    }
+
+    /**
+     * @return the next payload group to process. null if no more payload groups to process left.
+     */
     public PayloadGroup getNextPayloadGroup() {
         if (next == null) {
             return null;
@@ -62,21 +75,9 @@ public class PayloadGroup {
         return r.adaptTo(PayloadGroup.class);
     }
 
-    public Workspace getWorkspace() {
-        return resource.getParent().adaptTo(Workspace.class);
-    }
-
-    public Payload getNextPayload() {
-        for (Resource r : resource.getChildren()) {
-            Payload payload = r.adaptTo(Payload.class);
-            if (payload != null && !payload.isOnboarded()) {
-                return payload;
-            }
-        }
-
-        return null;
-    }
-
+    /**
+     * @return list of all the Payloads in the PayloadGroup.
+     */
     public List<Payload> getPayloads() {
         List<Payload> payloads = new ArrayList<Payload>();
 
@@ -88,5 +89,19 @@ public class PayloadGroup {
         }
 
         return payloads;
+    }
+
+    /**
+     * @return the next payload eligible for processing. null if none exist.
+     */
+    public Payload getNextPayload() {
+        for (Resource r : resource.getChildren()) {
+            Payload payload = r.adaptTo(Payload.class);
+            if (payload != null && !payload.isOnboarded()) {
+                return payload;
+            }
+        }
+
+        return null;
     }
 }
