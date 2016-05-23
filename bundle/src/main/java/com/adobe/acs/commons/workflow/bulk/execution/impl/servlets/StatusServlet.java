@@ -57,7 +57,7 @@ public class StatusServlet extends SlingAllMethodsServlet {
     protected final void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)
             throws ServletException, IOException {
 
-        SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy hh:mm:ss aaa Z");
+        SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy hh:mm:ss aaa");
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
@@ -70,6 +70,12 @@ public class StatusServlet extends SlingAllMethodsServlet {
         try {
             json.put("initialized", workspace.isInitialized());
             json.put("status", workspace.getStatus());
+
+            if (workspace.getSubStatus() != null) {
+                json.put("subStatus", workspace.getSubStatus());
+            }
+
+            json.put("runnerType", config.getRunnerType());
             json.put("queryStatement", config.getQueryStatement());
             json.put("workflowModel", StringUtils.removeEnd(config.getWorkflowModelId(), "/jcr:content/model"));
             json.put("batchSize", config.getBatchSize());
@@ -77,13 +83,14 @@ public class StatusServlet extends SlingAllMethodsServlet {
             json.put("purgeWorkflow", config.isPurgeWorkflow());
             json.put("interval", config.getInterval());
             json.put("timeout", config.getTimeout());
+            json.put("throttle", config.getThrottle());
 
             // Counts
-            int remainingCount = workspace.getTotalCount() - (workspace.getCompleteCount());
+            int remainingCount = workspace.getTotalCount() - (workspace.getCompleteCount() + workspace.getFailCount());
             json.put("totalCount", workspace.getTotalCount());
-            json.put("completedCount", workspace.getCompleteCount());
+            json.put("completeCount", workspace.getCompleteCount());
             json.put("remainingCount", remainingCount);
-            //json.put("failedCount", 100);
+            json.put("failCount", workspace.getFailCount());
             json.put("percentComplete", Math.round(((workspace.getTotalCount() - remainingCount) / (workspace.getTotalCount() * 1F)) * DECIMAL_TO_PERCENT));
 
             // Times

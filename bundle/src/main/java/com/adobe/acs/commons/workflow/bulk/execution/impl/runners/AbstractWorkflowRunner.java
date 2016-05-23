@@ -22,11 +22,14 @@ package com.adobe.acs.commons.workflow.bulk.execution.impl.runners;
 
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowRunner;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
+import com.adobe.acs.commons.workflow.bulk.execution.impl.SubStatus;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Payload;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import org.apache.sling.api.resource.PersistenceException;
 
 import java.util.Calendar;
+
+import static com.day.cq.wcm.foundation.List.log;
 
 public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
 
@@ -41,6 +44,11 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
         workspace.commit();
     }
 
+    public void stopping(Workspace workspace) throws PersistenceException {
+        workspace.setStatus(Status.RUNNING, SubStatus.STOPPING);
+        workspace.commit();
+    }
+
     public void stop(Workspace workspace) throws PersistenceException {
         workspace.setStatus(Status.STOPPED);
         workspace.setStoppedAt(Calendar.getInstance());
@@ -48,7 +56,7 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
     }
 
     public void stopWithError(Workspace workspace) throws PersistenceException {
-        workspace.setStatus(Status.STOPPED_ERROR);
+        workspace.setStatus(Status.STOPPED, SubStatus.ERROR);
         workspace.setStoppedAt(Calendar.getInstance());
         workspace.commit();
     }
@@ -59,13 +67,21 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
         workspace.commit();
     }
 
+    public void running(Payload payload) {
+        payload.setStatus(Status.RUNNING);
+    }
+
     public void complete(Payload payload) throws Exception {
         // Remove active payload
         Workspace workspace = payload.getPayloadGroup().getWorkspace();
-        workspace.removeActivePayload(payload);
+        if (workspace != null) {
+            workspace.removeActivePayload(payload);
 
-        // Increment the complete count
-        workspace.incrementComplete();
+            // Increment the complete count
+            workspace.incrementCompleteCount();
+        } else {
+            log.warn("Unable to processing complete for payload [ {} ~> {} ]", payload.getPath(), payload.getPayloadPath());
+        }
     }
 
     public void fail(Payload payload) throws Exception {
@@ -74,7 +90,7 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
         workspace.removeActivePayload(payload);
 
         // Increment the complete count
-        workspace.incrementFailure();
+        workspace.incrementFailCount();
     }
 
     public abstract void forceTerminate(Payload payload) throws Exception;

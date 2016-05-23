@@ -29,6 +29,7 @@ import org.apache.sling.models.annotations.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
 @Model(adaptables = Resource.class)
@@ -37,7 +38,7 @@ public class Config {
 
     private final Resource resource;
 
-    private final Workspace workspace;
+    private Workspace workspace;
 
     @Inject
     @Default(values = "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl")
@@ -81,7 +82,6 @@ public class Config {
 
     public Config(Resource resource) {
         this.resource = resource;
-        this.workspace = this.resource.getChild(Workspace.NN_WORKSPACE).adaptTo(Workspace.class);
     }
 
     public int getTimeout() {
@@ -137,7 +137,12 @@ public class Config {
     }
 
     public Workspace getWorkspace() {
-        return workspace;
+        // Collecting workspace on get to avoid cyclic recursion between models
+        if (this.workspace == null) {
+            this.workspace = this.resource.getChild(Workspace.NN_WORKSPACE).adaptTo(Workspace.class);
+        }
+
+        return this.workspace;
     }
 
     public void commit() throws PersistenceException {

@@ -22,6 +22,7 @@ package com.adobe.acs.commons.workflow.bulk.execution.model;
 
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowRunner;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
+import com.adobe.acs.commons.workflow.bulk.execution.impl.SubStatus;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.EnumUtils;
@@ -63,13 +64,15 @@ public class Workspace {
 
     private static final String PN_COUNT_COMPLETE = "completeCount";
 
-    private static final String PN_COUNT_FAILURE = "failureCount";
+    private static final String PN_COUNT_FAILURE = "failCount";
 
     private static final String PN_COUNT_TOTAL = "totalCount";
 
     private static final String PN_STARTED_AT = "startedAt";
 
     private static final String PN_STATUS = "status";
+
+    private static final String PN_SUB_STATUS = "subStatus";
 
     private static final String PN_STOPPED_AT = "stoppedAt";
 
@@ -104,6 +107,10 @@ public class Workspace {
     private String status;
 
     @Inject
+    @Optional
+    private String subStatus;
+
+    @Inject
     @Default(booleanValues = false)
     private boolean initialized;
 
@@ -117,7 +124,7 @@ public class Workspace {
 
     @Inject
     @Default(intValues = 0)
-    private int failureCount;
+    private int failCount;
 
     @Inject
     @Optional
@@ -138,11 +145,11 @@ public class Workspace {
     }
 
     @PostConstruct
-    protected void init() throws Exception {
+    protected void activate() throws Exception {
         this.config = resource.getParent().adaptTo(Config.class);
 
         for(BulkWorkflowRunner candidate : runners) {
-            if (StringUtils.equals(config.getRunnerType(), candidate.getClass().getCanonicalName())) {
+            if (StringUtils.equals(this.config.getRunnerType(), candidate.getClass().getCanonicalName())) {
                 runner = candidate;
                 break;
             }
@@ -158,6 +165,10 @@ public class Workspace {
 
     public int getCompleteCount() {
         return completeCount;
+    }
+
+    public int getFailCount() {
+        return failCount;
     }
 
     public String getJobName() {
@@ -181,7 +192,21 @@ public class Workspace {
         // Note, this gets the value from the session state, and not the cached Sling Model value as this value can change over the life of the SlingModel.
         resourceResolver.refresh();
         status = resource.getValueMap().get(PN_STATUS, Status.NOT_STARTED.toString());
+
         return EnumUtils.getEnum(Status.class, status);
+    }
+
+    public SubStatus getSubStatus() {
+        // Refresh state before getting the status.
+        // Note, this gets the value from the session state, and not the cached Sling Model value as this value can change over the life of the SlingModel.
+        resourceResolver.refresh();
+        subStatus = resource.getValueMap().get(PN_SUB_STATUS, String.class);
+
+        if (subStatus != null) {
+            return EnumUtils.getEnum(SubStatus.class, subStatus);
+        } else {
+            return null;
+        }
     }
 
     public Calendar getStoppedAt() {
@@ -193,7 +218,7 @@ public class Workspace {
     }
 
     public boolean isResumable() {
-        return Status.STOPPED_DEACTIVATED.equals(getStatus());
+        return Status.STOPPED.equals(getStatus()) && SubStatus.DEACTIVATED.equals(getSubStatus());
     }
 
     public boolean isRunning() {
@@ -201,9 +226,11 @@ public class Workspace {
     }
 
     public boolean isStopped() {
-        return Status.STOPPED.equals(getStatus())
-                || Status.STOPPED_DEACTIVATED.equals(getStatus())
-                || Status.STOPPED_ERROR.equals(getStatus());
+        return Status.STOPPED.equals(getStatus());
+    }
+
+    public boolean isStopping() {
+        return Status.RUNNING.equals(getStatus()) && SubStatus.STOPPING.equals(getSubStatus());
     }
 
     public Config getConfig() {
@@ -224,41 +251,52 @@ public class Workspace {
     public void setStatus(Status status) {
         this.status = status.toString();
         properties.put(PN_STATUS, this.status);
+        // Clear subStatus
+        subStatus = null;
+        properties.remove(PN_SUB_STATUS);
+    }
+
+    public void setStatus(Status status, SubStatus subStatus) {
+        setStatus(status);
+        if (subStatus != null) {
+            this.subStatus = subStatus.toString();
+            properties.put(PN_SUB_STATUS, this.subStatus);
+        }
     }
 
     public void setInitialized(boolean initialized) {
         this.initialized = initialized;
-        properties.put(PN_INITIALIZED, initialized);
+        properties.put(PN_INITIALIZED, this.initialized);
     }
 
     public void setTotalCount(int totalCount) {
         this.totalCount = totalCount;
-        properties.put(PN_COUNT_TOTAL, totalCount);
+        properties.put(PN_COUNT_TOTAL, this.totalCount);
     }
 
     public void setStartedAt(Calendar startedAt) {
         this.startedAt = startedAt;
-        properties.put(PN_STARTED_AT, startedAt);
+        properties.put(PN_STARTED_AT, this.startedAt);
     }
 
     public void setStoppedAt(Calendar stoppedAt) {
         this.stoppedAt = stoppedAt;
-        properties.put(PN_STOPPED_AT, stoppedAt);
+        properties.put(PN_STOPPED_AT, this.stoppedAt);
     }
 
     public void setCompletedAt(Calendar completedAt) {
         this.completedAt = completedAt;
-        properties.put(PN_COMPLETED_AT, completedAt);
+        properties.put(PN_COMPLETED_AT, this.completedAt);
     }
 
-    public void incrementComplete() {
+    public void incrementCompleteCount() {
         this.completeCount++;
         properties.put(PN_COUNT_COMPLETE, this.completeCount);
     }
 
-    public void incrementFailure() {
-        this.failureCount++;
-        properties.put(PN_COUNT_FAILURE, this.failureCount);
+    public void incrementFailCount() {
+        this.failCount++;
+        properties.put(PN_COUNT_FAILURE, this.failCount);
     }
 
     /**
@@ -328,7 +366,7 @@ public class Workspace {
      * @param payloadGroup the payload group to add as active
      */
     public void addActivePayloadGroup(PayloadGroup payloadGroup) {
-        if (!ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath())) {
+        if (payloadGroup != null && !ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath())) {
             activePayloadGroups = (String[]) ArrayUtils.add(activePayloadGroups, payloadGroup.getPath());
             properties.put(PN_ACTIVE_PAYLOAD_GROUPS, activePayloadGroups);
         }
@@ -339,7 +377,7 @@ public class Workspace {
      * @param payloadGroup the payload group to remove from the active list.
      */
     public void removeActivePayloadGroup(PayloadGroup payloadGroup) {
-        if (ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath())) {
+        if (payloadGroup != null && ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath())) {
             activePayloadGroups = (String[]) ArrayUtils.removeElement(activePayloadGroups, payloadGroup.getPath());
             properties.put(PN_ACTIVE_PAYLOAD_GROUPS, activePayloadGroups);
         }
@@ -352,4 +390,5 @@ public class Workspace {
     public void commit() throws PersistenceException {
         config.commit();
     }
+
 }

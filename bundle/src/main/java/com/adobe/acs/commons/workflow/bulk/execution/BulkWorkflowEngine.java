@@ -57,6 +57,14 @@ public interface BulkWorkflowEngine {
     void stop(Config config) throws PersistenceException;
 
     /**
+     * Stopping bulk workflow process.
+     *
+     * @param config bulk workflow manager config obj
+     * @throws PersistenceException
+     */
+    void stopping(Config config) throws PersistenceException;
+
+    /**
      * Resume as stopped bulk workflow process.
      *
      * @param config bulk workflow manager config obj

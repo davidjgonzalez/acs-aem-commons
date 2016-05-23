@@ -164,6 +164,7 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
         }
     }
 
+    @Override
     public final void start(Config config) throws PersistenceException {
         Workspace workspace = config.getWorkspace();
 
@@ -174,6 +175,13 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
         scheduler.schedule(job, options);
     }
 
+    @Override
+    public void stopping(Config config) throws PersistenceException {
+        Workspace workspace = config.getWorkspace();
+        workspace.getRunner().stopping(workspace);
+    }
+
+    @Override
     public void stop(Config config) throws PersistenceException {
         Workspace workspace = config.getWorkspace();
 
@@ -181,6 +189,7 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
         workspace.getRunner().stop(workspace);
     }
 
+    @Override
     public void resume(Config config) throws PersistenceException {
         start(config);
     }
@@ -202,6 +211,7 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
     @Activate
     protected final void activate(final Map<String, String> args) {
         if (!PropertiesUtil.toBoolean(args.get(PROP_AUTO_RESUME), DEFAULT_AUTO_RESUME)) {
+            log.debug("Auto-resume for Bulk Workflow Manager is disabled");
             return;
         }
 
@@ -219,10 +229,12 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
             final ConfigResourceVisitor visitor = new ConfigResourceVisitor();
             visitor.accept(root);
 
-            final List<Config> configs = visitor.getResumableConfigs();
-            log.debug("Found {} resumable config(s)", configs.size());
+            final List<Config> configs = visitor.getConfigs();
+            log.debug("Found [ {} ] candidate config(s) for resuming", configs.size());
 
             for (Config config : configs) {
+                log.debug("[ {} ~> {} ]", config.getPath(), config.getWorkspace().getStatus().name());
+
                 if (config.getWorkspace().isResumable()) {
                     log.info("Automatically resuming bulk workflow at [ {} ]", config.getPath());
                     this.resume(config);
@@ -242,8 +254,7 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
 
     @Deactivate
     protected final void deactivate(final Map<String, String> args) {
-
-        log.info("Looking for any Bulk Workflow Manager pages to resume processing under: {}", BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH);
+        log.debug("Looking for any Bulk Workflow Manager pages to STOPPED_DEACTIVATED processing under: {}", BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH);
 
         ResourceResolver adminResourceResolver = null;
         try {
@@ -257,10 +268,12 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
             final ConfigResourceVisitor visitor = new ConfigResourceVisitor();
             visitor.accept(root);
 
-            final List<Config> configs = visitor.getResumableConfigs();
-            log.debug("Found {} resumable config(s)", configs.size());
+            final List<Config> configs = visitor.getConfigs();
+            log.debug("Found [ {} ] candidate config(s) for deactivated stopping",  configs.size());
 
             for (Config config : configs) {
+                log.debug("[ {} ~> {} ]", config.getPath(), config.getWorkspace().getStatus().name());
+
                 if (config.getWorkspace().isRunning()) {
                     log.info("Stopping bulk workflow at [ {} ] due to ACS Commons bundle deactivation", config.getPath());
                     this.stopDeactivate(config);

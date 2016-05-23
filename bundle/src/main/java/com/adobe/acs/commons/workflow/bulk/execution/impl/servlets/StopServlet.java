@@ -53,7 +53,7 @@ public class StopServlet extends SlingAllMethodsServlet {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        bulkWorkflowEngine.stop(request.getResource().adaptTo(Config.class));
+        bulkWorkflowEngine.stopping(request.getResource().adaptTo(Config.class));
 
         response.sendRedirect(request.getResourceResolver().map(request, request.getResource().getPath()) + ".status.json");
     }

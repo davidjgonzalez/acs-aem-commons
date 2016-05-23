@@ -36,11 +36,15 @@ public interface BulkWorkflowRunner {
 
     void start(Workspace workspace) throws PersistenceException;
 
+    void stopping(Workspace workspace) throws PersistenceException;
+
     void stop(Workspace workspace) throws PersistenceException;
 
     void stopWithError(Workspace workspace) throws PersistenceException;
 
     void complete(Workspace workspace) throws PersistenceException;
+
+    void running(Payload payload);
 
     void complete(Payload payload) throws Exception;
 

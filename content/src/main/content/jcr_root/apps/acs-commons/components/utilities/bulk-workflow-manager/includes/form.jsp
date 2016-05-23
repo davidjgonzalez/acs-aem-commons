@@ -103,11 +103,11 @@
         </div>
 
         <div ng-show="form.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl'">
-            <%@include file="form-aem-workflow.jsp"%>
+            <%@include file="aem-workflow/form.jsp"%>
         </div>
 
         <div ng-show="form.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl'">
-            <%@include file="form-synthetic-workflow.jsp"%>
+            <%@include file="synthetic-workflow/form.jsp"%>
         </div>
 
         <hr/>

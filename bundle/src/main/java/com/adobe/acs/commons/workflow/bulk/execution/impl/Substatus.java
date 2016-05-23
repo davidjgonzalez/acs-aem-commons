@@ -20,15 +20,9 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.impl;
 
-public enum Status {
-    NOT_STARTED,
-    FAILED,
-    STOPPED,
-    RUNNING,
-
-    ABORTED,
-    COMPLETED,
-    SUSPENDED,
-    TERMINATED,
+public enum SubStatus {
+    ERROR,
+    DEACTIVATED,
+    STOPPING,
     FORCE_TERMINATED
 }

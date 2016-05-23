@@ -51,6 +51,10 @@ angular.module('ACS.Commons.notifications', []).factory('NotificationsService', 
             return this.data.running.visible;
         },
 
+        shift: function() {
+            this.data.notifications.shift();
+        },
+
         add: function (type, title, message) {
             var self = this,
                 notification = {

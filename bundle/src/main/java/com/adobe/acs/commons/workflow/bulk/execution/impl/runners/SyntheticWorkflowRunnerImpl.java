@@ -20,6 +20,11 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.impl.runners;
 
+import com.adobe.acs.commons.fam.ActionManager;
+import com.adobe.acs.commons.fam.ActionManagerFactory;
+import com.adobe.acs.commons.fam.DeferredActions;
+import com.adobe.acs.commons.functions.BiFunction;
+import com.adobe.acs.commons.functions.Consumer;
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowRunner;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
@@ -29,6 +34,7 @@ import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowModel;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowRunner;
 import com.day.cq.workflow.WorkflowException;
+import org.apache.commons.collections.ListUtils;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
@@ -42,14 +48,21 @@ import org.apache.sling.commons.scheduler.Scheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import java.util.List;
+
+import static org.apache.sling.api.scripting.SlingBindings.LOG;
 
 @Component
 @Service
 public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implements BulkWorkflowRunner {
     private static final Logger log = LoggerFactory.getLogger(SyntheticWorkflowRunnerImpl.class);
+
+    @Reference
+    private ActionManagerFactory actionManagerFactory;
+
+    @Reference
+    private DeferredActions actions;
 
     @Reference
     private ResourceResolverFactory resourceResolverFactory;
@@ -68,6 +81,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                 ResourceResolver jobResourceResolver = null;
                 Resource configResource = null;
                 long start = System.currentTimeMillis();
+                int total = 0;
 
                 try {
                     jobResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
@@ -75,45 +89,32 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                     Config config = configResource.adaptTo(Config.class);
                     Workspace workspace = config.getWorkspace();
 
-                    if (workspace.isStopped()) {
-                        return;
-                    }
-
-                    jobResourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("changedByWorkflowProcess");
-
-                    boolean ignoreNonProcessSteps = true;
-                    SyntheticWorkflowModel model;
+                    if (workspace.isStopped()) { return; }
 
                     try {
-                        // Get the model once
-                        model = swr.getSyntheticWorkflowModel(
-                                jobResourceResolver,
-                                config.getWorkflowModelId(),
-                                ignoreNonProcessSteps);
+                        SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(jobResourceResolver, config.getWorkflowModelId(), true);
+                        jobResourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("changedByWorkflowProcess");
 
-                        boolean saveAfterEachWFProcess = false;
-                        boolean saveAtEndOfAllWFProcesses = false;
-
-                        int total = 0;
-                        List<Payload> payloads = onboardCurrentPayloadGroup(workspace);
+                        List<Payload> payloads = null;
+                        PayloadGroup payloadGroup = null;
 
                         do {
-                            // Safety check; if payloads comes in null then immediately break from loop as there is no work to do
-                            if(payloads == null || workspace.isStopped()) {
-                                log.info("Bulk Synthetic Workflow run has been stopped.");
-                                break;
-                            }
+                            payloads = onboardPayloadGroup(workspace);
 
+                            // Safety check; if payloads comes in null then immediately break from loop as there is no work to do
+                            if (payloads == null ) {  break; }
+
+                            int batchCount = 0;
                             for (Payload payload : payloads) {
-                                log.info("Processing payload [ {} ~> {} ]", payload.getPath(), payload.getPayloadPath());
+                                if (workspace.isStopping() || workspace.isStopped()) {
+                                    stop(workspace);
+                                    break;
+                                }
 
                                 try {
-                                    swr.execute(jobResourceResolver,
-                                            payload.getPayloadPath(),
-                                            model,
-                                            saveAfterEachWFProcess,
-                                            saveAtEndOfAllWFProcesses);
-                                    complete(payload);
+                                    log.info("Processing payload [ {} ]", payload.getPayloadPath());
+                                    process(jobResourceResolver, model, payload);
+                                    Thread.sleep(2000);
                                 } catch (WorkflowException e) {
                                     fail(payload);
                                     log.warn("Synthetic Workflow could not process [ {} ]", payload.getPath(), e);
@@ -123,44 +124,43 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                                     fail(payload);
                                 }
 
+                                batchCount++;
                                 total++;
                             }
 
                             // Save the Payload Group batch
                             long batchStart = System.currentTimeMillis();
-                            jobResourceResolver.commit();
+                            workspace.commit();
 
                             if (log.isDebugEnabled()) {
-                                log.debug("Save last batch of [ {} ] payloads in {} ms", config.getBatchSize(), System.currentTimeMillis() - batchStart);
+                                log.debug("Save last batch of [ {} ] payloads in {} ms", batchCount, System.currentTimeMillis() - batchStart);
                                 log.debug("Running total of [ {} ] payloads saved in {} ms", total, System.currentTimeMillis() - start);
                             }
 
                             // Get next set of payloads to process
-                            payloads = onboardNextPayloadGroup(workspace);
+                            // This object is generally unused; however the state prepareNextPayloadGroup sets is critical to the next iteration of the loop.
+                            payloadGroup = prepareNextPayloadGroup(workspace);
+
+                            // Persist the onboarding of the next group prior to sleeping ..
+                            workspace.commit();
 
                             if (workspace.isStopped()) {
                                 log.info("Bulk Synthetic Workflow run has been stopped.");
                                 break;
-                            } else if(payloads != null && config.getThrottle() > 0) {
-                                log.debug("Sleeping bulk workflow synthetic execution for {} seconds", config.getTimeout());
+                            } else if (payloadGroup != null && config.getThrottle() > 0) {
+                                log.debug("Sleeping bulk workflow synthetic execution for {} seconds", config.getThrottle());
                                 Thread.sleep(config.getThrottle() * 1000);
                             }
-                        } while (payloads != null);
+                        } while (payloadGroup != null);
 
-                        if (!workspace.isStopped()) {
-                            complete(workspace);
-                        }
+                        if (!workspace.isStopped()) { complete(workspace); }
 
-                        if (jobResourceResolver.hasChanges()) {
-                            jobResourceResolver.commit();
-                        }
+                        workspace.commit();
 
                         log.info("Grand total of [ {} ] payloads saved in {} ms", total, System.currentTimeMillis() - start);
                     } catch (Exception e) {
                         log.error("Error processing Bulk Synthetic Workflow execution.", e);
                     }
-                } catch (RepositoryException e) {
-                    log.error("Error processing Bulk Synthetic Workflow execution.", e);
                 } catch (LoginException e) {
                     log.error("Error processing Bulk Synthetic Workflow execution.", e);
                 } finally {
@@ -170,18 +170,60 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                 }
             }
 
-            private List<Payload> onboardCurrentPayloadGroup(Workspace workspace) throws PersistenceException {
-                // Synthetic workflow will only have 0 or 1 active payload groups
-               return onboardPayloadGroup(workspace.getActivePayloadGroups().get(0));
+            private void process(ResourceResolver resourceResolver, final SyntheticWorkflowModel model, Payload payload) throws Exception {
+                ActionManager manager = actionManagerFactory.createTaskManager("Bulk Workflow Manager", resourceResolver, 10);
+                final String nodePath = payload.getPayloadPath();
+
+                manager.deferredWithResolver(new Consumer<ResourceResolver>() {
+                    @Override
+                    public void accept(ResourceResolver r) throws Exception {
+                        currentPath.set(nodePath);
+
+                        actions.startSyntheticWorkflows(model).accept(r, nodePath);
+                    }
+                });
+
+                manager.addCleanupTask();
+                complete(payload);
             }
 
-            private List<Payload> onboardNextPayloadGroup(Workspace workspace) throws PersistenceException {
-                // Synthetic workflow will only have 0 or 1 active payload groups
-                PayloadGroup payloadGroup = workspace.getActivePayloadGroups().get(0);
-                workspace.removeActivePayloadGroup(payloadGroup);
+            /**
+             * Promotes the next payload group to be processed.
+             * Returns null if no more payload groups left to process - this important.
+             * @param workspace the bulk workflow manager workspace.
+             * @return the payloads to process for the next group, or null if nothing left to process.
+             * @throws PersistenceException
+             */
+            private PayloadGroup prepareNextPayloadGroup(Workspace workspace) throws PersistenceException {
+                // Synthetic workflow will only have 1 active payload groups
+                if (workspace.getActivePayloadGroups().size() > 0) {
 
-                PayloadGroup nextPayloadGroup = payloadGroup.getNextPayloadGroup();
-                return onboardPayloadGroup(nextPayloadGroup);
+                    // Remove the active payload group from the active payload list
+                    PayloadGroup payloadGroup = workspace.getActivePayloadGroups().get(0);
+                    workspace.removeActivePayloadGroup(payloadGroup);
+
+                    // Add the active payload group from the active payload list
+                    // This will allow th next call to onboardPayloadGroup(..) to process this payload group.
+                    PayloadGroup nextPayloadGroup = payloadGroup.getNextPayloadGroup();
+                    workspace.addActivePayloadGroup(nextPayloadGroup);
+
+                    return nextPayloadGroup;
+                } else {
+                    // This is the empty payload to process case
+                    return null;
+                }
+            }
+
+            private List<Payload> onboardPayloadGroup(Workspace workspace) throws PersistenceException {
+                // Synthetic workflow will only have 0 or 1 active payload groups
+                if (workspace.getActivePayloads().size() > 0) {
+                    return workspace.getActivePayloads();
+                } else if (workspace.getActivePayloadGroups().size() > 0) {
+                    return onboardPayloadGroup(workspace.getActivePayloadGroups().get(0));
+                } else {
+                    log.debug("Could not find active payload groups to onboard");
+                    return ListUtils.EMPTY_LIST;
+                }
             }
 
             private List<Payload> onboardPayloadGroup(PayloadGroup payloadGroup) throws PersistenceException {
@@ -195,23 +237,27 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
 
                 if (payloads.size() > 0) {
                     workspace.addActivePayloadGroup(payloadGroup);
+
                     for (Payload payload : payloads) {
-                        payload.setStatus(Status.RUNNING);
-                        workspace.addActivePayload(payload);
+                        if (Status.NOT_STARTED.equals(payload.getStatus())) {
+                            workspace.addActivePayload(payload);
+                        }
                     }
                 }
 
                 // Commit here so the status polling can see what is being processed
                 workspace.commit();
 
-                return payloads;
+                if (payloads != null && payloads.size() > 0) {
+                    return payloads;
+                } else {
+                    return null;
+                }
             }
-
         };
 
         return job;
     }
-
 
     @Override
     public ScheduleOptions getOptions(Config config) {
@@ -234,6 +280,11 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
         // Remove active payload
         super.complete(payload);
         payload.setStatus(Status.COMPLETED);
+    }
+
+    @Override
+    public void running(Payload payload) {
+        super.running(payload);
     }
 }
 

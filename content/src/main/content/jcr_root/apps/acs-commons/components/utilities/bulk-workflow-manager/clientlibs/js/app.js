@@ -2,7 +2,7 @@
  * #%L
  * ACS AEM Commons Bundle
  * %%
- * Copyright (C) 2013 Adobe
+ * Copyright (C) 2016 Adobe
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,14 +62,14 @@ angular.module('acs-commons-bulk-workflow-manager-app',['acsCoral', 'ACS.Commons
             $scope.status();
             $scope.form = {};
 
-            $scope.notifications.shift();
+            NotificationsService.shift();
         }).
         error(function(data, status, headers, config) {
                 NotificationsService.add('error',
                     data.title || "Error starting Bulk Workflow",
                     data.message);
 
-            $scope.notifications.shift();
+            NotificationsService.shift();
         });
 
         NotificationsService.add('notice',
@@ -96,7 +96,6 @@ angular.module('acs-commons-bulk-workflow-manager-app',['acsCoral', 'ACS.Commons
     };
 
     $scope.resume = function() {
-
         $http({
             method: 'POST',
             url: $scope.app.uri + '.resume.json',
@@ -115,7 +114,7 @@ angular.module('acs-commons-bulk-workflow-manager-app',['acsCoral', 'ACS.Commons
     };
 
     $scope.status = function(forceStatus) {
-        var timeout = ($scope.app.pollingInterval || $scope.dfault.pollingInterval ) * 1000;
+        var timeout = ($scope.app.pollingInterval || $scope.dfault.pollingInterval) * 1000;
         $scope.app.polling = true;
 
         $http({
@@ -125,9 +124,8 @@ angular.module('acs-commons-bulk-workflow-manager-app',['acsCoral', 'ACS.Commons
         }).
             success(function(data, status, headers, config) {
                 $scope.data.status = data || {};
-
                 if(!forceStatus) {
-                    if ($scope.data.status.state === 'running') {
+                    if ($scope.data.status.status === 'RUNNING') {
                         $scope.app.pollingPromise = $timeout(function () {
                             $scope.status();
                         }, timeout);
