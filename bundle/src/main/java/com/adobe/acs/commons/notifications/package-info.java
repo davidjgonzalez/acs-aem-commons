@@ -2,7 +2,7 @@
  * #%L
  * ACS AEM Commons Bundle
  * %%
- * Copyright (C) 2015 Adobe
+ * Copyright (C) 2016 Adobe
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,5 @@
  * limitations under the License.
  * #L%
  */
-
-/**
- * Invalidation module of http cache implementation has a sling job with a defined topic, a job consumer and a set of
- * invalidation events. Invalidation events create invalidation jobs which would be consumed by the job consumer and
- * invalidates the cache. For a typical implementation, invalidation event could be custom supplied based on the cache
- * config invalidation requirements. A sample implementation based on sling eventing is provided.
- */
-@aQute.bnd.annotation.Version("1.1.0")
-package com.adobe.acs.commons.httpcache.invalidator;
-
-
+@aQute.bnd.annotation.Version("2.5.0")
+package com.adobe.acs.commons.notifications;
