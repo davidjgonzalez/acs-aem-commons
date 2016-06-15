@@ -20,11 +20,9 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.impl.runners;
 
-import com.adobe.acs.commons.fam.ActionManager;
 import com.adobe.acs.commons.fam.ActionManagerFactory;
 import com.adobe.acs.commons.fam.DeferredActions;
-import com.adobe.acs.commons.functions.BiFunction;
-import com.adobe.acs.commons.functions.Consumer;
+import com.adobe.acs.commons.fam.ThrottledTaskRunner;
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowRunner;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
@@ -51,8 +49,6 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.Session;
 import java.util.List;
 
-import static org.apache.sling.api.scripting.SlingBindings.LOG;
-
 @Component
 @Service
 public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implements BulkWorkflowRunner {
@@ -73,6 +69,9 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
     @Reference
     private SyntheticWorkflowRunner swr;
 
+    @Reference
+    private ThrottledTaskRunner throttledTaskRunner;
+
     public final Runnable run(final Config jobConfig) {
         final Runnable job = new Runnable() {
             private String configPath = jobConfig.getPath();
@@ -82,80 +81,99 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                 Resource configResource = null;
                 long start = System.currentTimeMillis();
                 int total = 0;
+                boolean stopped = false;
 
                 try {
                     jobResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
                     configResource = jobResourceResolver.getResource(configPath);
-                    Config config = configResource.adaptTo(Config.class);
-                    Workspace workspace = config.getWorkspace();
 
-                    if (workspace.isStopped()) { return; }
+                    final Config config = configResource.adaptTo(Config.class);
+                    final Workspace workspace = config.getWorkspace();
+
+                    if (workspace.isStopped()) {
+                        return;
+                    }
 
                     try {
                         SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(jobResourceResolver, config.getWorkflowModelId(), true);
                         jobResourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("changedByWorkflowProcess");
 
-                        List<Payload> payloads = null;
                         PayloadGroup payloadGroup = null;
+                        if (workspace.getActivePayloadGroups().size() > 0) {
+                            payloadGroup = workspace.getActivePayloadGroups().get(0);
+                        }
 
-                        do {
-                            payloads = onboardPayloadGroup(workspace);
+                        while (payloadGroup != null) {
+                            List<Payload> payloads = workspace.getActivePayloads();
+
+                            if (payloads.size() == 0) {
+                                // payloads size is 0, so onboard next payload group
+                                payloadGroup = onboardNextPayloadGroup(workspace, payloadGroup);
+
+                                if (payloadGroup != null) {
+                                    payloads = onboardNextPayloads(workspace, payloadGroup);
+                                }
+                            }
 
                             // Safety check; if payloads comes in null then immediately break from loop as there is no work to do
-                            if (payloads == null ) {  break; }
+                            if (payloads == null || payloads.size() == 0) {
+                                break;
+                            }
 
                             int batchCount = 0;
                             for (Payload payload : payloads) {
+
                                 if (workspace.isStopping() || workspace.isStopped()) {
                                     stop(workspace);
+                                    stopped = true;
                                     break;
                                 }
 
                                 try {
-                                    log.info("Processing payload [ {} ]", payload.getPayloadPath());
-                                    process(jobResourceResolver, model, payload);
-                                    Thread.sleep(2000);
+                                    // Wait before starting more work
+                                    throttledTaskRunner.waitForLowCpuAndLowMemory();
+
+                                    long processStart = System.currentTimeMillis();
+                                    swr.execute(jobResourceResolver, payload.getPayloadPath(), model, false, false);
+                                    complete(workspace, payload);
+                                    log.info("Processed [ {} ] in {} ms", payload.getPayloadPath(), System.currentTimeMillis() - processStart);
                                 } catch (WorkflowException e) {
-                                    fail(payload);
+                                    fail(workspace, payload);
                                     log.warn("Synthetic Workflow could not process [ {} ]", payload.getPath(), e);
                                 } catch (Exception e) {
                                     // Complete call failed; consider it failed
                                     log.warn("Complete call on [ {} ] failed", payload.getPath(), e);
-                                    fail(payload);
+                                    fail(workspace, payload);
                                 }
 
                                 batchCount++;
                                 total++;
-                            }
+                            } // end for
 
                             // Save the Payload Group batch
-                            long batchStart = System.currentTimeMillis();
+                            //long batchStart = System.currentTimeMillis();
                             workspace.commit();
 
+                            /*
                             if (log.isDebugEnabled()) {
                                 log.debug("Save last batch of [ {} ] payloads in {} ms", batchCount, System.currentTimeMillis() - batchStart);
                                 log.debug("Running total of [ {} ] payloads saved in {} ms", total, System.currentTimeMillis() - start);
                             }
+                            */
 
-                            // Get next set of payloads to process
-                            // This object is generally unused; however the state prepareNextPayloadGroup sets is critical to the next iteration of the loop.
-                            payloadGroup = prepareNextPayloadGroup(workspace);
-
-                            // Persist the onboarding of the next group prior to sleeping ..
-                            workspace.commit();
-
-                            if (workspace.isStopped()) {
+                            if (stopped) {
                                 log.info("Bulk Synthetic Workflow run has been stopped.");
                                 break;
-                            } else if (payloadGroup != null && config.getThrottle() > 0) {
+                            } /*else if (payloadGroup != null && !payloadGroup.isLast() && config.getThrottle() > 0) {
                                 log.debug("Sleeping bulk workflow synthetic execution for {} seconds", config.getThrottle());
                                 Thread.sleep(config.getThrottle() * 1000);
-                            }
-                        } while (payloadGroup != null);
+                            } */
+                        }
 
-                        if (!workspace.isStopped()) { complete(workspace); }
-
-                        workspace.commit();
+                        // Stop check in case a STOP request is made that breaks the while loop
+                        if (!stopped) {
+                            complete(workspace);
+                        }
 
                         log.info("Grand total of [ {} ] payloads saved in {} ms", total, System.currentTimeMillis() - start);
                     } catch (Exception e) {
@@ -170,89 +188,28 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                 }
             }
 
-            private void process(ResourceResolver resourceResolver, final SyntheticWorkflowModel model, Payload payload) throws Exception {
-                ActionManager manager = actionManagerFactory.createTaskManager("Bulk Workflow Manager", resourceResolver, 10);
-                final String nodePath = payload.getPayloadPath();
+            private PayloadGroup onboardNextPayloadGroup(Workspace workspace, PayloadGroup currentPayloadGroup) throws PersistenceException {
+                PayloadGroup nextPayloadGroup = currentPayloadGroup.getNextPayloadGroup();
+                workspace.removeActivePayloadGroup(currentPayloadGroup);
 
-                manager.deferredWithResolver(new Consumer<ResourceResolver>() {
-                    @Override
-                    public void accept(ResourceResolver r) throws Exception {
-                        currentPath.set(nodePath);
-
-                        actions.startSyntheticWorkflows(model).accept(r, nodePath);
-                    }
-                });
-
-                manager.addCleanupTask();
-                complete(payload);
-            }
-
-            /**
-             * Promotes the next payload group to be processed.
-             * Returns null if no more payload groups left to process - this important.
-             * @param workspace the bulk workflow manager workspace.
-             * @return the payloads to process for the next group, or null if nothing left to process.
-             * @throws PersistenceException
-             */
-            private PayloadGroup prepareNextPayloadGroup(Workspace workspace) throws PersistenceException {
-                // Synthetic workflow will only have 1 active payload groups
-                if (workspace.getActivePayloadGroups().size() > 0) {
-
-                    // Remove the active payload group from the active payload list
-                    PayloadGroup payloadGroup = workspace.getActivePayloadGroups().get(0);
-                    workspace.removeActivePayloadGroup(payloadGroup);
-
-                    // Add the active payload group from the active payload list
-                    // This will allow th next call to onboardPayloadGroup(..) to process this payload group.
-                    PayloadGroup nextPayloadGroup = payloadGroup.getNextPayloadGroup();
+                if (nextPayloadGroup != null) {
                     workspace.addActivePayloadGroup(nextPayloadGroup);
-
-                    return nextPayloadGroup;
-                } else {
-                    // This is the empty payload to process case
-                    return null;
                 }
+
+                return nextPayloadGroup;
             }
 
-            private List<Payload> onboardPayloadGroup(Workspace workspace) throws PersistenceException {
-                // Synthetic workflow will only have 0 or 1 active payload groups
-                if (workspace.getActivePayloads().size() > 0) {
-                    return workspace.getActivePayloads();
-                } else if (workspace.getActivePayloadGroups().size() > 0) {
-                    return onboardPayloadGroup(workspace.getActivePayloadGroups().get(0));
-                } else {
-                    log.debug("Could not find active payload groups to onboard");
+            private List<Payload> onboardNextPayloads(Workspace workspace, PayloadGroup payloadGroup) throws PersistenceException {
+                if (payloadGroup == null) {
                     return ListUtils.EMPTY_LIST;
                 }
-            }
 
-            private List<Payload> onboardPayloadGroup(PayloadGroup payloadGroup) throws PersistenceException {
-                if(payloadGroup == null) {
-                    // payloadGroup is the last group, so return null to signify nothing left to process
-                    return null;
-                }
-
-                Workspace workspace = payloadGroup.getWorkspace();
                 List<Payload> payloads = payloadGroup.getPayloads();
-
                 if (payloads.size() > 0) {
-                    workspace.addActivePayloadGroup(payloadGroup);
-
-                    for (Payload payload : payloads) {
-                        if (Status.NOT_STARTED.equals(payload.getStatus())) {
-                            workspace.addActivePayload(payload);
-                        }
-                    }
+                    workspace.addActivePayloads(payloads);
                 }
 
-                // Commit here so the status polling can see what is being processed
-                workspace.commit();
-
-                if (payloads != null && payloads.size() > 0) {
-                    return payloads;
-                } else {
-                    return null;
-                }
+                return payloads;
             }
         };
 
@@ -270,21 +227,20 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
     }
 
     @Override
-    public void forceTerminate(Payload payload) throws PersistenceException {
-        final Workspace workspace = payload.getPayloadGroup().getWorkspace();
+    public void forceTerminate(Workspace workspace, Payload payload) throws PersistenceException {
         workspace.setStatus(Status.FORCE_TERMINATED);
     }
 
     @Override
-    public void complete(Payload payload) throws Exception {
+    public void complete(Workspace workspace, Payload payload) throws Exception {
         // Remove active payload
-        super.complete(payload);
+        super.complete(workspace, payload);
         payload.setStatus(Status.COMPLETED);
     }
 
     @Override
-    public void running(Payload payload) {
-        super.running(payload);
+    public void run(Workspace workspace, Payload payload) {
+        super.run(workspace, payload);
     }
 }
 

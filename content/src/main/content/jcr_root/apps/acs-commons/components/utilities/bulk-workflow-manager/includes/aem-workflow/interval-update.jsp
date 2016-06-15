@@ -17,18 +17,12 @@
   ~ limitations under the License.
   ~ #L%
   --%>
-<h3>Current Batch</h3>
-<table class="coral-Table" current-batch-table>
-    <thead>
-    <tr class="coral-Table-row">
-        <th class="coral-Table-headerCell status-col">Status</th>
-        <th class="coral-Table-headerCell">Payload</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr class="coral-Table-row" ng-repeat="item in data.status.activePayloads ">
-        <td class="coral-Table-cell {{ item.status }}">{{ item.status || 'NOT_STARTED' }}</td>
-        <td class="coral-Table-cell">{{ item.path }}</td>
-    </tr>
-    </tbody>
-</table>
+Update batch interval to
+
+<input type="text"
+       class="coral-Form-field coral-Textfield"
+       ng-required="false"
+       ng-model="form.interval"
+       placeholder="{{ form.interval }}"/>
+
+seconds.

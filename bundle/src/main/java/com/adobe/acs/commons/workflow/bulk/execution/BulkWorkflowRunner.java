@@ -20,19 +20,32 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution;
 
+import com.adobe.acs.commons.util.QueryHelper;
+import com.adobe.acs.commons.workflow.bulk.execution.impl.SubStatus;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Payload;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import org.apache.sling.api.resource.PersistenceException;
-import org.apache.sling.commons.scheduler.Job;
 import org.apache.sling.commons.scheduler.ScheduleOptions;
+
+import javax.jcr.RepositoryException;
 
 public interface BulkWorkflowRunner {
     Runnable run(Config config);
 
     ScheduleOptions getOptions(Config config);
 
-    void initialize(Workspace workspace, int totalCount);
+    /**
+     * Initialize the Bulk Workflow Manager jcr:content node and build out the batch structure.
+     *
+     * @param config bulk workflow manager config obj
+     * @throws PersistenceException
+     * @throws RepositoryException
+     */
+    void initialize(QueryHelper queryHelper, Config config) throws PersistenceException,
+            RepositoryException;
+
+    void initialize(Workspace workspace, int totalCount) throws PersistenceException;
 
     void start(Workspace workspace) throws PersistenceException;
 
@@ -40,14 +53,16 @@ public interface BulkWorkflowRunner {
 
     void stop(Workspace workspace) throws PersistenceException;
 
+    void stop(Workspace workspace, SubStatus subStatus) throws PersistenceException;
+
     void stopWithError(Workspace workspace) throws PersistenceException;
 
     void complete(Workspace workspace) throws PersistenceException;
 
-    void running(Payload payload);
+    void run(Workspace workspace, Payload payload);
 
-    void complete(Payload payload) throws Exception;
+    void complete(Workspace workspace, Payload payload) throws Exception;
 
-    void forceTerminate(Payload payload) throws Exception;
+    void forceTerminate(Workspace workspace, Payload payload) throws Exception;
 }
 

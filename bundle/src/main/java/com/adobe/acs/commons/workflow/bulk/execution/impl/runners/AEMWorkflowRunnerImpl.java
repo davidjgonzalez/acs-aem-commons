@@ -20,6 +20,7 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.impl.runners;
 
+import com.adobe.acs.commons.fam.ThrottledTaskRunner;
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowRunner;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
@@ -64,6 +65,9 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
     @Reference
     private ResourceResolverFactory resourceResolverFactory;
 
+    @Reference
+    private ThrottledTaskRunner throttledTaskRunner;
+
     /**
      * {@inheritDoc}
      */
@@ -75,15 +79,16 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
             private String jobName = jobConfig.getWorkspace().getJobName();
 
             public void run() {
-                log.debug("Running AEM Bulk Workflow job [ {} ]", jobName);
+                log.debug("Running Bulk AEM Workflow job [ {} ]", jobName);
 
                 ResourceResolver adminResourceResolver = null;
                 Resource configResource = null;
+                Config config = null;
+                Workspace workspace = null;
 
                 try {
                     adminResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
                     configResource = adminResourceResolver.getResource(configPath);
-                    Config config = null;
 
                     if (configResource != null) {
                         config = configResource.adaptTo(Config.class);
@@ -94,7 +99,15 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                                 configPath);
                         scheduler.unschedule(jobName);
                     } else {
-                        final List<Payload> priorActivePayloads = config.getWorkspace().getActivePayloads();
+                        workspace = config.getWorkspace();
+
+                        if (workspace.isStopped() || workspace.isStopping()) {
+                            unscheduleJob(configResource, workspace);
+                            stop(workspace);
+                            return;
+                        }
+
+                        final List<Payload> priorActivePayloads = workspace.getActivePayloads();
                         final List<Payload> currentActivePayloads = new ArrayList<Payload>();
 
                         for (Payload payload : priorActivePayloads) {
@@ -108,11 +121,11 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                                     // Something bad happened; Workflow is missing.
                                     // This could be a result of a purge.
                                     // Dont know what the status is so mark as Force Terminated
-                                    forceTerminate(payload);
+                                    forceTerminate(workspace, payload);
                                 } else if (!workflow.isActive()) {
                                     // Workflow has ended, so mark payload as complete
                                     payload.updateWith(workflow);
-                                    complete(payload);
+                                    complete(workspace, payload);
                                 } else {
                                     // If active, check that the workflow has not expired
                                     Calendar now = Calendar.getInstance();
@@ -122,7 +135,7 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
 
                                     if (!now.before(expiresAt)) {
                                         payload.updateWith(workflow);
-                                        forceTerminate(payload);
+                                        forceTerminate(workspace, payload);
                                     } else {
                                         // Finally, if active and not expired, update status and let the workflow continue
                                         payload.updateWith(workflow);
@@ -131,7 +144,10 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                                 }
                             } catch (WorkflowException e) {
                                 // Logged in Payload class
-                                forceTerminate(payload);
+                                forceTerminate(workspace, payload);
+                            } catch (Exception e) {
+                                log.error("Error while processing payload [ {} ]", payload.getPayloadPath());
+                                forceTerminate(workspace, payload);
                             }
                         }
 
@@ -144,50 +160,61 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
 
                         WorkflowModel workflowModel = workflowSession.getModel(config.getWorkflowModelId());
 
+                        boolean dirty = false;
                         while (capacity > 0) {
                             // Bring new payloads into the active workspace
-                            Payload payload = onboardNextPayload(config.getWorkspace());
+                            Payload payload = onboardNextPayload(workspace);
                             if (payload != null) {
+                                // Wait before starting more work
+                                throttledTaskRunner.waitForLowCpuAndLowMemory();
+
                                 log.debug("Onboarding payload [ {} ~> {} ]", payload.getPath(), payload.getPayloadPath());
                                 Workflow workflow = workflowSession.startWorkflow(workflowModel,
                                         workflowSession.newWorkflowData("JCR_PATH", payload.getPayloadPath()));
                                 payload.updateWith(workflow);
                                 currentActivePayloads.add(payload);
                                 capacity--;
+                                dirty = true;
                             } else {
                                 // This means there is nothing
-                               break;
+                                break;
                             }
                         }
 
-                        // Check if we are in a completed state for the entire workspace.
-                        if (currentActivePayloads.size() == 0) {
+                        if (!dirty && currentActivePayloads.size() == 0) {
+                            // Check if we are in a completed state for the entire workspace.
                             // We are done! Everything is processed and nothing left to onboard.
-                            complete(config.getWorkspace());
+                            log.debug("No more payloads found to process. No more work to be done.");
+                            complete(workspace);
+                            unscheduleJob(configResource, workspace);
+                            log.info("Completed Bulk Workflow execution for [ {} ]", config.getPath());
                         }
 
-                        config.commit();
+                        workspace.commit();
                     }
                 } catch (Exception e) {
                     log.error("Error processing periodic execution: {}", e);
-
-                    try {
-                        if (configResource != null) {
-                            scheduler.unschedule(jobName);
-                            stopWithError(jobConfig.getWorkspace());
-                        } else {
-                            scheduler.unschedule(jobName);
-                            log.error("Removed scheduled job [ {} ] due to errors content resource [ {} ] could not "
-                                    + "be found.", jobName, configPath);
-                        }
-                    } catch (Exception ex) {
-                        scheduler.unschedule(jobName);
-                        log.error("Removed scheduled job [ {} ] due to errors and could not stop normally.", jobName);
-                    }
+                    unscheduleJob(configResource, workspace);
                 } finally {
                     if (adminResourceResolver != null) {
                         adminResourceResolver.close();
                     }
+                }
+            }
+
+            private void unscheduleJob(Resource configResource, Workspace workspace) {
+                try {
+                    if (configResource != null) {
+                        scheduler.unschedule(jobName);
+                    } else {
+                        scheduler.unschedule(jobName);
+                        stopWithError(workspace);
+                        log.error("Removed scheduled job [ {} ] due to errors content resource [ {} ] could not "
+                                + "be found.", jobName, configPath);
+                    }
+                } catch (Exception e1) {
+                    scheduler.unschedule(jobName);
+                    log.error("Removed scheduled job [ {} ] due to errors and could not stop normally.", jobName, e1);
                 }
             }
         };
@@ -206,10 +233,10 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
     }
 
     @Override
-    public void complete(Payload payload) throws Exception {
-        super.complete(payload);
+    public void complete(Workspace workspace, Payload payload) throws Exception {
+        super.complete(workspace, payload);
 
-        if (payload.getPayloadGroup().getWorkspace().getConfig().isPurgeWorkflow()) {
+        if (workspace.getConfig().isPurgeWorkflow()) {
             try {
                 purge(payload);
             } catch (WorkflowException e) {
@@ -219,32 +246,32 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
     }
 
     @Override
-    public void forceTerminate(Payload payload) throws Exception {
-        final Workspace workspace = payload.getPayloadGroup().getWorkspace();
+    public void forceTerminate(Workspace workspace, Payload payload) throws Exception {
         final WorkflowSession workflowSession =
                 workflowService.getWorkflowSession(payload.getResourceResolver().adaptTo(Session.class));
 
         Workflow workflow = null;
+        fail(workspace, payload);
         try {
             workflow = payload.getWorkflow();
 
-        if (workflow != null) {
-            if (workflow.isActive()) {
-                workflowSession.terminateWorkflow(workflow);
+            if (workflow != null) {
+                if (workflow.isActive()) {
+                    workflowSession.terminateWorkflow(workflow);
 
-                log.info("Force Terminated workflow [ {} ]", workflow.getId());
+                    log.info("Force Terminated workflow [ {} ]", workflow.getId());
 
-                workspace.setStatus(Status.FORCE_TERMINATED);
+                    payload.setStatus(Status.FORCE_TERMINATED);
 
-                if (workspace.getConfig().isPurgeWorkflow()) {
-                    purge(payload);
+                    if (workspace.getConfig().isPurgeWorkflow()) {
+                        purge(payload);
+                    }
+                } else {
+                    log.warn("Trying to force terminate an inactive workflow [ {} ]", workflow.getId());
                 }
             } else {
-                log.warn("Trying to force terminate an inactive workflow [ {} ]", workflow.getId());
+                payload.setStatus(Status.FORCE_TERMINATED);
             }
-        } else {
-            workspace.setStatus(Status.FORCE_TERMINATED);
-        }
         } catch (WorkflowException e) {
             throw new Exception(e);
         }
@@ -295,38 +322,31 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
 
         PayloadGroup nextPayloadGroup = null;
         for (PayloadGroup payloadGroup : workspace.getActivePayloadGroups()) {
-            nextPayloadGroup = onboardNextPayloadGroup(payloadGroup);
+            nextPayloadGroup = onboardNextPayloadGroup(workspace, payloadGroup);
 
             if (nextPayloadGroup != null) {
                 Payload payload = nextPayloadGroup.getNextPayload();
                 if (payload == null) {
                     continue;
                     // all done! empty group
+                } else {
+                    workspace.addActivePayload(payload);
                 }
-
-                workspace.addActivePayload(payload);
 
                 if (log.isDebugEnabled()) {
                     log.debug("Took {} ms to onboard next payload", System.currentTimeMillis() - start);
                 }
 
                 return payload;
-            } else {
-                log.debug("Could not find a next payload group for [ {} ]", payloadGroup.getPath());
             }
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Took {} ms to onboard next payload", System.currentTimeMillis() - start);
-        }
         return null;
     }
 
-    public PayloadGroup onboardNextPayloadGroup(PayloadGroup payloadGroup) {
+    public PayloadGroup onboardNextPayloadGroup(Workspace workspace, PayloadGroup payloadGroup) {
         // Assumes a next group should be onboarded
         // This method is not responsible for removing items from the activePayloadGroups
-        Workspace workspace = payloadGroup.getWorkspace();
-
         if (payloadGroup == null) {
             return null;
         }
@@ -341,7 +361,7 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
             // OR there is nothing left in that group to process...
 
             // recursive call..
-            return onboardNextPayloadGroup(candidatePayloadGroup);
+            return onboardNextPayloadGroup(workspace, candidatePayloadGroup);
         } else {
             // Found a good payload group! has atleast 1 payload that can be onboarded
             workspace.addActivePayloadGroup(payloadGroup);

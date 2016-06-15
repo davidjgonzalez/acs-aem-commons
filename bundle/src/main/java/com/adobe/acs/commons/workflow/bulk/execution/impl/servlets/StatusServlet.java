@@ -20,11 +20,15 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.impl.servlets;
 
+import com.adobe.acs.commons.fam.impl.ThrottledTaskRunnerStats;
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowEngine;
+import com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
+import com.adobe.acs.commons.workflow.bulk.execution.model.Failure;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Payload;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import org.apache.commons.lang.StringUtils;
+import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
@@ -34,8 +38,11 @@ import org.apache.sling.commons.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.management.InstanceNotFoundException;
+import javax.management.ReflectionException;
 import javax.servlet.ServletException;
 import java.io.IOException;
+import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 
 /**
@@ -52,6 +59,9 @@ public class StatusServlet extends SlingAllMethodsServlet {
     private static final Logger log = LoggerFactory.getLogger(StatusServlet.class);
 
     private static final int DECIMAL_TO_PERCENT = 100;
+
+    @Reference
+    private ThrottledTaskRunnerStats ttrs;
 
     @Override
     protected final void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)
@@ -76,6 +86,7 @@ public class StatusServlet extends SlingAllMethodsServlet {
             }
 
             json.put("runnerType", config.getRunnerType());
+            json.put("queryType", config.getQueryType());
             json.put("queryStatement", config.getQueryStatement());
             json.put("workflowModel", StringUtils.removeEnd(config.getWorkflowModelId(), "/jcr:content/model"));
             json.put("batchSize", config.getBatchSize());
@@ -92,10 +103,9 @@ public class StatusServlet extends SlingAllMethodsServlet {
             json.put("remainingCount", remainingCount);
             json.put("failCount", workspace.getFailCount());
             json.put("percentComplete", Math.round(((workspace.getTotalCount() - remainingCount) / (workspace.getTotalCount() * 1F)) * DECIMAL_TO_PERCENT));
-
             // Times
             if (workspace.getStartedAt() != null) {
-                json.put("startedAt",sdf.format(workspace.getStartedAt().getTime()));
+                json.put("startedAt", sdf.format(workspace.getStartedAt().getTime()));
             }
 
             if (workspace.getStoppedAt() != null) {
@@ -106,17 +116,43 @@ public class StatusServlet extends SlingAllMethodsServlet {
                 json.put("completedAt", sdf.format(workspace.getCompletedAt().getTime()));
             }
 
-            for (Payload payload : config.getWorkspace().getActivePayloads()) {
-                json.accumulate("activePayloads", payload.toJSON());
+            if (AEMWorkflowRunnerImpl.class.getName().equals(config.getRunnerType())) {
+                for (Payload payload : config.getWorkspace().getActivePayloads()) {
+                    json.accumulate("activePayloads", payload.toJSON());
+                }
             }
+
+            // Failures
+            for (Failure failure : workspace.getFailures()) {
+                json.accumulate("failures", failure.toJSON());
+            }
+
+            json.put("systemStats", getSystemStats());
 
             response.getWriter().write(json.toString());
 
         } catch (JSONException e) {
             log.error("Could not collect Bulk Workflow status due to: {}", e);
 
-            HttpErrorUtil.sendJSONError(response, SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+            JSONErrorUtil.sendJSONError(response, SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "Could not collect Bulk Workflow status.", e.getMessage());
         }
+    }
+
+    private JSONObject getSystemStats() throws JSONException {
+        JSONObject json = new JSONObject();
+        try {
+            json.put("cpu", MessageFormat.format("{0,number,#%}", ttrs.getCpuLevel()));
+        } catch (InstanceNotFoundException e) {
+            log.error("Could not collect CPU stats", e);
+            json.put("cpu", -1);
+        } catch (ReflectionException e) {
+            log.error("Could not collect CPU stats", e);
+            json.put("cpu", -1);
+        }
+        json.put("mem", MessageFormat.format("{0,number,#%}", ttrs.getMemoryUsage()));
+        json.put("maxCpu", MessageFormat.format("{0,number,#%}", ttrs.getMaxCpu()));
+        json.put("maxMem", MessageFormat.format("{0,number,#%}", ttrs.getMaxHeap()));
+        return json;
     }
 }

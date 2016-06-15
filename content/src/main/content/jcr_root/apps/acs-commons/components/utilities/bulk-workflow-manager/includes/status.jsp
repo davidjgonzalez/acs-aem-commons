@@ -55,9 +55,11 @@
     <%@include file="synthetic-workflow/status.jsp"%>
 </div>
 
+<div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.FastActionManagerRunnerImpl">
+    <%@include file="fast-action-manager/status.jsp"%>
+</div>
 
 <%-- Progress Bar --%>
-
 <div class="coral-Progress acs-section acs-progress-bar"
      ng-show="data.status.percentComplete || data.status.percentComplete === 0">
     <div class="coral-Progress-bar">
@@ -78,6 +80,11 @@
             ng-show="data.status.status === 'RUNNING' && data.status.subStatus !== 'STOPPING'"
             class="warning">Stop Bulk Workflow</button>
 
+    <button role="button"
+            class="coral-Button coral-Button--disabled"
+            ng-show="data.status.subStatus === 'STOPPING'"
+            class="warning">Stopping...</button>
+
     <button ng-click="resume()"
             role="button"
             class="coral-Button coral-Button--primary"
@@ -88,15 +95,14 @@
     <div   style="margin-left: 12.5rem; line-height: 2.5rem"
            ng-show="data.status.status === 'STOPPED'">
 
-        Update batch interval to
 
-        <input type="text"
-               class="coral-Form-field coral-Textfield"
-               ng-required="false"
-               ng-model="form.interval"
-               placeholder="{{ form.interval }}"/>
+        <div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl'">
+            <%@include file="aem-workflow/interval-update.jsp"%>
+        </div>
 
-        seconds.
+        <div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl'">
+            <%@include file="synthetic-workflow/throttle-update.jsp"%>
+        </div>
     </div>
 </div>
 
@@ -104,11 +110,10 @@
 <section  ng-show="data.status.status === 'RUNNING'">
     <hr/>
 
-    <h3 acs-coral-heading>Current batch</h3>
-
     <div class="acs-section" style="line-height: 2.5rem;">
         Refresh status every
         <input type="text"
+               style="width: 5rem"
                class="coral-Form-field coral-Textfield"
                ng-blur="updatePollingInterval(form.pollingInterval)"
                ng-model="form.pollingInterval"
@@ -128,4 +133,9 @@
         <%@include file="synthetic-workflow/status-table.jsp"%>
     </div>
 
+    <div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.FastActionManagerRunnerImpl">
+        <%@include file="fast-action-manager/status-table.jsp"%>
+    </div>
+
+    <%@include file="failures-table.jsp"%>
 </section>

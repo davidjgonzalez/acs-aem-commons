@@ -46,6 +46,10 @@ import static com.day.cq.wcm.foundation.List.log;
 @Model(adaptables = Resource.class)
 public class Payload {
 
+    private static final String PN_WORKFLOW_INSTANCE_ID = "workflowInstanceId";
+    private static final String PN_STATUS = "status";
+    private static final String PN_PATH = "path";
+
     private ModifiableValueMap properties;
 
     private Resource resource;
@@ -64,13 +68,13 @@ public class Payload {
     @Optional
     private String workflowInstanceId;
 
+    public Payload(Resource resource) {
+        this.resource = resource;
+    }
+
     @PostConstruct
     public void activate() {
         properties = resource.adaptTo(ModifiableValueMap.class);
-    }
-
-    public Payload(Resource resource) {
-        this.resource = resource;
     }
 
     public ResourceResolver getResourceResolver() {
@@ -83,7 +87,7 @@ public class Payload {
 
     public void setStatus(Status status) {
         this.status = status.toString();
-        properties.put("status", this.status);
+        properties.put(PN_STATUS, this.status);
     }
 
     public String getPayloadPath() {
@@ -95,15 +99,17 @@ public class Payload {
     }
 
     public void updateWith(Workflow workflow) throws PersistenceException {
-        if (StringUtils.isBlank(workflowInstanceId)) {
+
+        if (StringUtils.isBlank(getWorkflowInstanceId())) {
+            log.debug("Setting workflow instance id: {}", getWorkflowInstanceId());
             workflowInstanceId = workflow.getId();
-            properties.put("workflowInstanceId", this.workflowInstanceId);
-        } else if (!StringUtils.equals(workflowInstanceId, workflow.getId())) {
+            properties.put(PN_WORKFLOW_INSTANCE_ID, workflowInstanceId);
+        } else if (!StringUtils.equals(getWorkflowInstanceId(), workflow.getId())) {
             throw new PersistenceException("Batch Entry workflow instance does not match [ " + workflowInstanceId + " ] vs [ " + workflow.getId() + "  ]");
         }
 
         if (!StringUtils.equals(status, workflow.getState())) {
-            // Status is    different, so update
+            // Status is different, so update
             setStatus(EnumUtils.getEnum(Status.class, workflow.getState()));
         }
     }
@@ -118,7 +124,9 @@ public class Payload {
         try {
             return workflowSession.getWorkflow(workflowInstanceId);
         } catch (WorkflowException e) {
-            log.error("Could not get workflow with id [ {} ]", workflowInstanceId);
+            log.error("Could not get workflow with id [ {} ]", workflowInstanceId, e);
+        } catch (Exception e) {
+            log.error("Could not get workflow with id [ {} ]", workflowInstanceId, e);
         }
 
         return null;
@@ -131,8 +139,17 @@ public class Payload {
 
     public JSONObject toJSON() throws JSONException {
         JSONObject json = new JSONObject();
-        json.put("status", getStatus().toString());
-        json.put("path", getPayloadPath());
+        json.put(PN_STATUS, getStatus().toString());
+        json.put(PN_PATH, getPayloadPath());
         return json;
+    }
+
+    String getWorkflowInstanceId() {
+        if (StringUtils.isNotBlank(workflowInstanceId)) {
+            resource.getResourceResolver().refresh();
+            workflowInstanceId = properties.get(PN_WORKFLOW_INSTANCE_ID, String.class);
+        }
+
+        return workflowInstanceId;
     }
 }

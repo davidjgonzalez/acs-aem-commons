@@ -104,4 +104,11 @@ public class PayloadGroup {
 
         return null;
     }
+
+    /**
+     * @return true if this is the last PayloadGroup
+     */
+    public boolean isLast() {
+        return getNextPayloadGroup() == null;
+    }
 }

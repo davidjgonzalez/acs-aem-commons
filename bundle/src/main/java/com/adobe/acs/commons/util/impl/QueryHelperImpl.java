@@ -32,10 +32,13 @@ import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 
+import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
+import javax.jcr.query.Query;
+import javax.jcr.query.QueryManager;
+import javax.jcr.query.QueryResult;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -46,9 +49,11 @@ public class QueryHelperImpl implements QueryHelper {
     @Reference
     private QueryBuilder queryBuilder;
 
+
     private static final String QUERY_BUILDER = "queryBuilder";
 
     private static final String LIST = "list";
+
     /**
      * Find all the resources needed for the package definition.
      *
@@ -60,14 +65,14 @@ public class QueryHelperImpl implements QueryHelper {
      * @throws RepositoryException
      */
     public List<Resource> findResources(final ResourceResolver resourceResolver,
-                                         final String language,
-                                         final String statement,
-                                         final String relPath) throws RepositoryException {
+                                        final String language,
+                                        final String statement,
+                                        final String relPath) throws RepositoryException {
 
         final List<Resource> resources = new ArrayList<Resource>();
 
         if (language.equals(QUERY_BUILDER)) {
-            final String[] lines = StringUtils.split(statement, '\n');
+            final String[] lines = StringUtils.split(statement, System.lineSeparator());
             final Map<String, String> params = ParameterUtil.toMap(lines, "=", false, null, true);
 
             // ensure all results are returned
@@ -94,14 +99,19 @@ public class QueryHelperImpl implements QueryHelper {
                 }
             }
         } else {
-            Iterator<Resource> resourceIterator = resourceResolver.findResources(statement, language);
+            QueryManager queryManager = resourceResolver.adaptTo(Session.class).getWorkspace().getQueryManager();
+            Query query = queryManager.createQuery(statement, language);
+            QueryResult result = query.execute();
 
-            while (resourceIterator.hasNext()) {
-                final Resource resource = resourceIterator.next();
-                final Resource relativeAwareResource = getRelativeAwareResource(resource, relPath);
+            NodeIterator nodeIter = result.getNodes();
+            while (nodeIter.hasNext()) {
+                Resource resource = resourceResolver.getResource(nodeIter.nextNode().getPath());
+                if (resource != null) {
+                    final Resource relativeAwareResource = getRelativeAwareResource(resource, relPath);
 
-                if (relativeAwareResource != null) {
-                    resources.add(relativeAwareResource);
+                    if (relativeAwareResource != null) {
+                        resources.add(relativeAwareResource);
+                    }
                 }
             }
         }
@@ -113,8 +123,8 @@ public class QueryHelperImpl implements QueryHelper {
      * Get the relative resource of the given resource if it resolves otherwise
      * the provided resource.
      *
-     * @param resource         the resource
-     * @param relPath          the relative path to resolve against the resource
+     * @param resource the resource
+     * @param relPath  the relative path to resolve against the resource
      * @return the relative resource if it resolves otherwise the resource
      */
     private Resource getRelativeAwareResource(final Resource resource, final String relPath) {

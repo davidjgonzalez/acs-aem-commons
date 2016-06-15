@@ -66,8 +66,13 @@ public class InitFormServlet extends SlingAllMethodsServlet {
 
         // Runners
         try {
-            json.accumulate("runnerTypes", new JSONObject().put("label", "AEM Workflow").put("value", "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl"));
-            json.accumulate("runnerTypes", new JSONObject().put("label", "Synthetic Workflow").put("value", "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl"));
+            json.accumulate("runnerTypes", new JSONObject().put("label", "AEM Workflow").put("value",
+                    "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl"));
+            json.accumulate("runnerTypes", new JSONObject().put("label", "Synthetic Workflow").put("value",
+                    "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl"));
+            json.accumulate("runnerTypes", new JSONObject().put("label", "Synthetic Workflow w/ FAM").put("value",
+                    "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.FastActionManagerRunnerImpl"));
+
         } catch (JSONException e) {
             log.error("Could not create JSON for Bulk Workflow Runner options");
             throw new ServletException(e);
@@ -78,8 +83,8 @@ public class InitFormServlet extends SlingAllMethodsServlet {
             json.accumulate("queryTypes", new JSONObject().put("label", "QueryBuilder").put("value", "querybuilder"));
             json.accumulate("queryTypes", new JSONObject().put("label", "xPath").put("value", "xpath"));
             json.accumulate("queryTypes", new JSONObject().put("label", "List").put("value", "list"));
-            json.accumulate("queryTypes", new JSONObject().put("label", "JCR-SQL").put("value", "JCR-SQL"));
             json.accumulate("queryTypes", new JSONObject().put("label", "JCR-SQL2").put("value", "JCR-SQL2"));
+            json.accumulate("queryTypes", new JSONObject().put("label", "JCR-SQL").put("value", "JCR-SQL"));
         } catch (JSONException e) {
             log.error("Could not create JSON for QueryType options");
             throw new ServletException(e);
@@ -109,7 +114,7 @@ public class InitFormServlet extends SlingAllMethodsServlet {
         } catch (WorkflowException e) {
             log.error("Could not create workflow model drop-down due to: {}", e);
 
-            HttpErrorUtil.sendJSONError(response, SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+            JSONErrorUtil.sendJSONError(response, SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "Could not collect Workflows",
                     e.getMessage());
         }

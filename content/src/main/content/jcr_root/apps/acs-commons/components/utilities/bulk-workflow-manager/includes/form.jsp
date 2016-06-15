@@ -88,26 +88,16 @@
             </select>
         </div>
 
-        <div class="coral-Form-fieldwrapper">
-            <label class="coral-Form-fieldlabel">Batch Size</label>
-
-            <input name="batchSize"
-                   type="number"
-                   min="2"
-                   class="coral-Form-field coral-Textfield"
-                   ng-pattern="/(^[2-9]\d*)|(^[1-9]\d+)/"
-                   ng-model="form.batchSize"
-                   placeholder="# of payloads to process at once [ Default: 10 ]"/>
-            <span class="coral-Form-fieldinfo coral-Icon coral-Icon--infoCircle coral-Icon--sizeS" data-init="quicktip" data-quicktip-type="info" data-quicktip-arrow="right"
-                data-quicktip-content="Batch size must be greater than 1"></span>
-        </div>
-
         <div ng-show="form.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl'">
             <%@include file="aem-workflow/form.jsp"%>
         </div>
 
         <div ng-show="form.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl'">
             <%@include file="synthetic-workflow/form.jsp"%>
+        </div>
+
+        <div ng-show="form.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.FastActionManagerRunnerImpl">
+            <%@include file="fast-action-manager/form.jsp"%>
         </div>
 
         <hr/>

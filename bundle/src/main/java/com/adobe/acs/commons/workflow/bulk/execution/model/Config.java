@@ -20,6 +20,7 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.model;
 
+import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.PersistenceException;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
@@ -29,7 +30,6 @@ import org.apache.sling.models.annotations.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
 @Model(adaptables = Resource.class)
@@ -37,6 +37,7 @@ public class Config {
     private static final Logger log = LoggerFactory.getLogger(Config.class);
 
     private final Resource resource;
+    private final ModifiableValueMap properties;
 
     private Workspace workspace;
 
@@ -82,6 +83,7 @@ public class Config {
 
     public Config(Resource resource) {
         this.resource = resource;
+        this.properties = resource.adaptTo(ModifiableValueMap.class);
     }
 
     public int getTimeout() {
@@ -90,6 +92,15 @@ public class Config {
 
     public int getThrottle() {
         return throttle;
+    }
+
+    public void setThrottle(int throttle) {
+        if (throttle < 1) {
+            throttle = 0;
+        }
+
+        this.throttle = throttle;
+        properties.put("throttle", this.throttle);
     }
 
     public boolean isPurgeWorkflow() {
@@ -102,6 +113,15 @@ public class Config {
 
     public int getInterval() {
         return interval;
+    }
+
+    public void setInterval(int interval) {
+        if (interval < 1) {
+            interval = 0;
+        }
+
+        this.interval = interval;
+        properties.put("interval", this.interval);
     }
 
     public String getRelativePath() {

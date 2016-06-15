@@ -26,7 +26,7 @@
         <tbody>
             <tr class="coral-Table-row">
                 <td class="coral-Table-cell">Runner</td>
-                <td class="coral-Table-cell">Synthetic Workflow</td>
+                <td class="coral-Table-cell">Synthetic Workflow w/ FAM</td>
             </tr>
 
             <tr class="coral-Table-row">
@@ -86,18 +86,20 @@
         </tr>
 
         <tr class="coral-Table-row">
-            <td class="coral-Table-cell">Batch Size</td>
-            <td class="coral-Table-cell">{{ data.status.batchSize }}</td>
-        </tr>
-
-        <tr class="coral-Table-row">
-            <td class="coral-Table-cell">Batch Throttle</td>
-            <td class="coral-Table-cell">{{ data.status.throttle }} seconds</td>
-        </tr>
-
-        <tr class="coral-Table-row">
             <td class="coral-Table-cell">Workflow Model</td>
             <td class="coral-Table-cell">{{ data.status.workflowModel }}</td>
+        </tr>
+
+
+        <tr class="coral-Table-row">
+            <td class="coral-Table-cell">Save Interval</td>
+            <td class="coral-Table-cell">{{ data.status.interval }}</td>
+        </tr>
+
+
+        <tr class="coral-Table-row">
+            <td class="coral-Table-cell">Update Granularity</td>
+            <td class="coral-Table-cell">{{ data.status.batchSize }}</td>
         </tr>
 
 
@@ -107,17 +109,6 @@
             <td class="coral-Table-cell">{{ data.status.startedAt }}</td>
         </tr>
 
-        <tr class="coral-Table-row"
-            ng-show="data.status.stoppedAt && !data.status.completedAt">
-            <td class="coral-Table-cell">Stopped At</td>
-            <td class="coral-Table-cell">{{ data.status.stoppedAt }}</td>
-        </tr>
-
-        <tr class="coral-Table-row"
-            ng-show="data.status.completedAt">
-            <td class="coral-Table-cell">Completed At</td>
-            <td class="coral-Table-cell">{{ data.status.completedAt }}</td>
-        </tr>
         </tbody>
     </table>
 </div>

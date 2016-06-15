@@ -18,11 +18,18 @@
  * #L%
  */
 
-package com.adobe.acs.commons.workflow.bulk.execution.impl;
+package com.adobe.acs.commons.fam.impl;
 
-public enum SubStatus {
-    ERROR,
-    DEACTIVATED,
-    STOPPING,
-    FORCE_TERMINATED
+import javax.management.InstanceNotFoundException;
+import javax.management.ReflectionException;
+
+public interface ThrottledTaskRunnerStats {
+    double getCpuLevel() throws InstanceNotFoundException, ReflectionException;
+
+    double getMemoryUsage();
+
+    double getMaxCpu();
+
+    double getMaxHeap();
+
 }

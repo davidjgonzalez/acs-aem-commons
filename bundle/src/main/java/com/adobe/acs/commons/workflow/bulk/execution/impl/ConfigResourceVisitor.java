@@ -20,7 +20,7 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.impl;
 
-import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
+import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowEngine;
 import com.day.cq.commons.jcr.JcrConstants;
 import com.day.cq.wcm.api.NameConstants;
 import org.apache.commons.lang.ArrayUtils;
@@ -34,17 +34,14 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.day.cq.wcm.foundation.List.log;
-
 public class ConfigResourceVisitor extends AbstractResourceVisitor {
-    private static Logger log = LoggerFactory.getLogger(ConfigResourceVisitor.class);
-
     private static final String BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH = "/etc/acs-commons/bulk-workflow-manager";
     private static final String NT_PAGE_CONTENT = "cq:PageContent";
     private static final String[] ACCEPTED_PRIMARY_TYPES = new String[]{NameConstants.NT_PAGE, NT_PAGE_CONTENT};
-    private List<Config> configurations = new ArrayList<Config>();
+    private static Logger log = LoggerFactory.getLogger(ConfigResourceVisitor.class);
+    private List<Resource> configurations = new ArrayList<Resource>();
 
-    public final List<Config> getConfigs() {
+    public final List<Resource> getConfigs() {
         return this.configurations;
     }
 
@@ -72,13 +69,10 @@ public class ConfigResourceVisitor extends AbstractResourceVisitor {
         // that the sling:resourceType is that of Bulk Workflow Manager Page and
         // that the Bulk Workflow Manager Page has been marked as "Stopped by Bundle Deactivation"
         if (NT_PAGE_CONTENT.equals(properties.get(JcrConstants.JCR_PRIMARYTYPE, String.class))) {
-            Config config = resource.adaptTo(Config.class);
-
-            if (config != null) {
-                this.configurations.add(config);
+            if (StringUtils.equals(BulkWorkflowEngine.SLING_RESOURCE_TYPE,
+                    properties.get("sling:resourceType", String.class))) {
+                this.configurations.add(resource);
             }
         }
-
-        return;
     }
 }

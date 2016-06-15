@@ -20,22 +20,128 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.impl.runners;
 
+import com.adobe.acs.commons.util.QueryHelper;
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowRunner;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.SubStatus;
+import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Payload;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
+import com.day.cq.commons.jcr.JcrUtil;
+import org.apache.commons.lang.StringUtils;
+import org.apache.felix.scr.annotations.Component;
+import org.apache.jackrabbit.commons.JcrUtils;
 import org.apache.sling.api.resource.PersistenceException;
+import org.apache.sling.api.resource.Resource;
+import org.apache.sling.api.resource.ResourceResolver;
 
+import javax.jcr.Node;
+import javax.jcr.RepositoryException;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
+import java.util.ListIterator;
 
 import static com.day.cq.wcm.foundation.List.log;
 
+@Component
 public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
+    private static final int SAVE_THRESHOLD = 1000;
 
-    public void initialize(Workspace workspace, int totalCount) {
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void initialize(QueryHelper queryHelper, Config config) throws
+            PersistenceException, RepositoryException {
+
+        // Query for all candidate resources
+        final ResourceResolver resourceResolver = config.getResourceResolver();
+        final List<Resource> resources = queryHelper.findResources(resourceResolver,
+                config.getQueryType(),
+                config.getQueryStatement(),
+                config.getRelativePath());
+
+        int total = 0;
+
+        /**
+         * cq:Page
+         * cq:Page/jcr:content
+         * cq:Page/jcr:content/workspace
+         * cq:Page/jcr:content/workspace/payloads
+         * cq:Page/jcr:content/workspace/payloads-Y
+         * cq:Page/jcr:content/workspace/payloads-Z
+         */
+
+        // Create node to store the run current working set
+        Node workspace = JcrUtils.getOrAddNode(config.getResource().adaptTo(Node.class), "workspace", "oak:Unstructured");
+        Node currentPayloads = JcrUtils.getOrCreateByPath(workspace, "payloads", true, "oak:Unstructured", "oak:Unstructured", false);
+
+        JcrUtil.setProperty(workspace, "activePayloadGroups", new String[]{currentPayloads.getPath()});
+
+        ListIterator<Resource> itr = resources.listIterator();
+
+        boolean firstPayloadGroup = true;
+        List<String> activePayloads = new ArrayList<String>();
+
+        while (itr.hasNext()) {
+            Resource payload = itr.next();
+
+            log.debug("Initializing payload with search result [ {} ]", payload.getPath());
+
+            if (StringUtils.isNotBlank(config.getRelativePath())) {
+                if (payload.getChild(config.getRelativePath()) != null) {
+                    payload = payload.getChild(config.getRelativePath());
+                } else {
+                    log.warn("Could not find node at [ {} ]", payload.getPath() + "/" + config.getRelativePath());
+                    continue;
+                }
+                // No rel path, so use the Query result node as the payload Node
+            }
+
+            total++;
+
+            Node payloadNode = JcrUtils.getOrCreateByPath(currentPayloads, "payload", true, "oak:Unstructured", "oak:Unstructured", false);
+            JcrUtil.setProperty(payloadNode, "path", payload.getPath());
+            if (firstPayloadGroup) {
+                activePayloads.add(payloadNode.getPath());
+            }
+
+            if (total % config.getBatchSize() == 0 && itr.hasNext()) {
+                // payload group is complete; save...
+                Node tmpPayloads = JcrUtils.getOrCreateByPath(workspace, "payloads", true, "oak:Unstructured", "oak:Unstructured", false);
+                JcrUtil.setProperty(currentPayloads, "next", tmpPayloads.getPath());
+                currentPayloads = tmpPayloads;
+
+                if (firstPayloadGroup) {
+                    firstPayloadGroup = false;
+                    JcrUtil.setProperty(workspace, "activePayloads", activePayloads.toArray(new String[activePayloads.size()]));
+                }
+            }
+
+            if (total % SAVE_THRESHOLD == 0) {
+                resourceResolver.commit();
+            } else if (!itr.hasNext()) {
+                // All search results are processed
+                resourceResolver.commit();
+            }
+        } // while
+
+        if (total > 0) {
+            config.getWorkspace().getRunner().initialize(config.getWorkspace(), total);
+            config.commit();
+
+            log.info("Completed initialization of Bulk Workflow Manager");
+        } else {
+            throw new IllegalArgumentException("Query returned zero results.");
+        }
+    }
+
+
+    public void initialize(Workspace workspace, int totalCount) throws PersistenceException {
         workspace.setInitialized(true);
         workspace.setTotalCount(totalCount);
+        workspace.commit();
     }
 
     public void start(Workspace workspace) throws PersistenceException {
@@ -55,6 +161,16 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
         workspace.commit();
     }
 
+    public void stop(Workspace workspace, SubStatus subStatus) throws PersistenceException {
+        if (subStatus != null) {
+            workspace.setStatus(Status.STOPPED, subStatus);
+        } else {
+            workspace.setStatus(Status.STOPPED);
+        }
+        workspace.setStoppedAt(Calendar.getInstance());
+        workspace.commit();
+    }
+
     public void stopWithError(Workspace workspace) throws PersistenceException {
         workspace.setStatus(Status.STOPPED, SubStatus.ERROR);
         workspace.setStoppedAt(Calendar.getInstance());
@@ -67,13 +183,12 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
         workspace.commit();
     }
 
-    public void running(Payload payload) {
+    public void run(Workspace workspace, Payload payload) {
         payload.setStatus(Status.RUNNING);
     }
 
-    public void complete(Payload payload) throws Exception {
+    public void complete(Workspace workspace, Payload payload) throws Exception {
         // Remove active payload
-        Workspace workspace = payload.getPayloadGroup().getWorkspace();
         if (workspace != null) {
             workspace.removeActivePayload(payload);
 
@@ -84,14 +199,16 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
         }
     }
 
-    public void fail(Payload payload) throws Exception {
+    public void fail(Workspace workspace, Payload payload) throws Exception {
         // Remove active payload
-        Workspace workspace = payload.getPayloadGroup().getWorkspace();
         workspace.removeActivePayload(payload);
 
         // Increment the complete count
         workspace.incrementFailCount();
+
+        // Track the failure details
+        workspace.addFailure(payload);
     }
 
-    public abstract void forceTerminate(Payload payload) throws Exception;
+    public abstract void forceTerminate(Workspace workspace, Payload payload) throws Exception;
 }

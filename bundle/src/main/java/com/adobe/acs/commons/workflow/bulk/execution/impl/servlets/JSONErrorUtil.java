@@ -26,9 +26,9 @@ import org.apache.sling.commons.json.JSONObject;
 
 import java.io.IOException;
 
-public final class HttpErrorUtil {
+public final class JSONErrorUtil {
 
-    private HttpErrorUtil() {
+    private JSONErrorUtil() {
         // Util class
     }
 

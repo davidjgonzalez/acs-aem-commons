@@ -62,19 +62,25 @@ public class ResumeServlet extends SlingAllMethodsServlet {
         try {
             params = new JSONObject(request.getParameter("params"));
 
-            final long interval = params.optLong("interval", -1);
+            final Config config = request.getResource().adaptTo(Config.class);
+            int throttle = params.optInt("throttle", -1);
+            int interval = params.optInt("interval", -1);
 
-            if (interval < 1) {
-                bulkWorkflowEngine.resume(request.getResource().adaptTo(Config.class));
-            } else {
-                bulkWorkflowEngine.resume(request.getResource().adaptTo(Config.class));
+            if (throttle > -1) {
+                config.setThrottle(throttle);
+                config.commit();
+            } else if (interval > -1) {
+                config.setInterval(interval);
+                config.commit();
             }
+
+            bulkWorkflowEngine.resume(config);
 
             response.sendRedirect(request.getResourceResolver().map(request, request.getResource().getPath()) + ".status.json");
         } catch (JSONException e) {
             log.error("Could not resume Bulk Workflow due to: {}", e);
 
-            HttpErrorUtil.sendJSONError(response, SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+            JSONErrorUtil.sendJSONError(response, SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "Could not resume Bulk Workflow.",
                     e.getMessage());
         }

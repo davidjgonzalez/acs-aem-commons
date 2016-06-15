@@ -5,8 +5,15 @@
     <table class="coral-Table coral-Table--bordered">
         <tbody>
         <tr class="coral-Table-row">
+            <td class="coral-Table-cell">Runner</td>
+            <td class="coral-Table-cell">AEM Workflow Engine</td>
+        </tr>
+
+        <tr class="coral-Table-row">
             <td class="coral-Table-cell">Status</td>
-            <td class="coral-Table-cell" style="text-transform: capitalize;">{{ data.status.status }}</td>
+            <td class="coral-Table-cell" style="text-transform: capitalize;">{{ data.status.status }}
+                <span ng-show="data.status.subStatus && data.status.subStatus !== 'SLEEPING'"> ( {{ data.status.subStatus }} )</span>
+            </td>
         </tr>
 
         <tr class="coral-Table-row">
@@ -28,6 +35,19 @@
             <td class="coral-Table-cell">Total</td>
             <td class="coral-Table-cell">{{ data.status.totalCount }}</td>
         </tr>
+
+        <tr class="coral-Table-row"
+            ng-show="data.status.startedAt">
+            <td class="coral-Table-cell">CPU Usage</td>
+            <td class="coral-Table-cell">{{ data.status.systemStats.cpu }} / {{ data.status.systemStats.maxCpu }}</td>
+        </tr>
+
+        <tr class="coral-Table-row"
+            ng-show="data.status.startedAt">
+            <td class="coral-Table-cell">Memory Usage</td>
+            <td class="coral-Table-cell">{{ data.status.systemStats.mem }} / {{ data.status.systemStats.maxMem }}</td>
+        </tr>
+
         </tbody>
     </table>
 </div>
@@ -35,6 +55,16 @@
 <div style="width: 48%; padding-left: 2%; float: left;">
     <table class="coral-Table coral-Table--bordered">
         <tbody>
+        <tr class="coral-Table-row">
+            <td class="coral-Table-cell">Query Type</td>
+            <td class="coral-Table-cell" style="text-transform: capitalize;">{{ data.status.queryType }}</td>
+        </tr>
+
+        <tr class="coral-Table-row" ng-hide="data.status.queryType === 'list'">
+            <td class="coral-Table-cell">Query Statement</td>
+            <td class="coral-Table-cell">{{ data.status.queryStatement }}</td>
+        </tr>
+
         <tr class="coral-Table-row">
             <td class="coral-Table-cell">Batch Size</td>
             <td class="coral-Table-cell">{{ data.status.batchSize }}</td>
@@ -49,7 +79,6 @@
             <td class="coral-Table-cell">Batch Interval</td>
             <td class="coral-Table-cell">{{ data.status.interval }} seconds</td>
         </tr>
-
 
         <tr class="coral-Table-row">
             <td class="coral-Table-cell">Workflow Model</td>
