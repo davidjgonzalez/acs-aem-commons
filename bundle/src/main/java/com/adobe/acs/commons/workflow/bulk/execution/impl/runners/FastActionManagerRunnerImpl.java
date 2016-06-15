@@ -156,10 +156,9 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
                                         fail(r.getResource(workspacePath).adaptTo(Workspace.class), path);
                                     } catch (Exception e1) {
                                         log.error(">>>  COULD NOT FAIL PAYLOAD", e1);
-                                        log.error("Could not record failure of payload [ {} ]", path, e1);
+                                        log.error(">>> Could not record failure of payload [ {} ]", path, e1);
                                     }
                                 }
-
 
 
                                 if (runningTotal.incrementAndGet() == total) {
