@@ -26,6 +26,7 @@ import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.SubStatus;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Payload;
+import com.adobe.acs.commons.workflow.bulk.execution.model.PayloadGroup;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import com.day.cq.commons.jcr.JcrUtil;
 import org.apache.commons.lang.StringUtils;
@@ -64,20 +65,11 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
 
         int total = 0;
 
-        /**
-         * cq:Page
-         * cq:Page/jcr:content
-         * cq:Page/jcr:content/workspace
-         * cq:Page/jcr:content/workspace/payloads
-         * cq:Page/jcr:content/workspace/payloads-Y
-         * cq:Page/jcr:content/workspace/payloads-Z
-         */
-
         // Create node to store the run current working set
-        Node workspace = JcrUtils.getOrAddNode(config.getResource().adaptTo(Node.class), "workspace", "oak:Unstructured");
-        Node currentPayloads = JcrUtils.getOrCreateByPath(workspace, "payloads", true, "oak:Unstructured", "oak:Unstructured", false);
+        Node workspace = JcrUtils.getOrAddNode(config.getResource().adaptTo(Node.class), Workspace.NN_WORKSPACE, Workspace.NT_UNORDERED);
+        Node currentPayloads = JcrUtils.getOrCreateByPath(workspace, Workspace.NN_PAYLOADS, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
 
-        JcrUtil.setProperty(workspace, "activePayloadGroups", new String[]{currentPayloads.getPath()});
+        JcrUtil.setProperty(workspace, Workspace.PN_ACTIVE_PAYLOAD_GROUPS, new String[]{currentPayloads.getPath()});
 
         ListIterator<Resource> itr = resources.listIterator();
 
@@ -101,7 +93,7 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
 
             total++;
 
-            Node payloadNode = JcrUtils.getOrCreateByPath(currentPayloads, "payload", true, "oak:Unstructured", "oak:Unstructured", false);
+            Node payloadNode = JcrUtils.getOrCreateByPath(currentPayloads, Payload.NN_PAYLOAD, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
             JcrUtil.setProperty(payloadNode, "path", payload.getPath());
             if (firstPayloadGroup) {
                 activePayloads.add(payloadNode.getPath());
@@ -109,13 +101,13 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
 
             if (total % config.getBatchSize() == 0 && itr.hasNext()) {
                 // payload group is complete; save...
-                Node tmpPayloads = JcrUtils.getOrCreateByPath(workspace, "payloads", true, "oak:Unstructured", "oak:Unstructured", false);
-                JcrUtil.setProperty(currentPayloads, "next", tmpPayloads.getPath());
+                Node tmpPayloads = JcrUtils.getOrCreateByPath(workspace, Workspace.NN_PAYLOADS, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
+                JcrUtil.setProperty(currentPayloads, PayloadGroup.PN_NEXT, tmpPayloads.getPath());
                 currentPayloads = tmpPayloads;
 
                 if (firstPayloadGroup) {
                     firstPayloadGroup = false;
-                    JcrUtil.setProperty(workspace, "activePayloads", activePayloads.toArray(new String[activePayloads.size()]));
+                    JcrUtil.setProperty(workspace, Workspace.PN_ACTIVE_PAYLOADS, activePayloads.toArray(new String[activePayloads.size()]));
                 }
             }
 

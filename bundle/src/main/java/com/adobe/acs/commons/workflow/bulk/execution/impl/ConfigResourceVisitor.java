@@ -28,6 +28,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.sling.api.resource.AbstractResourceVisitor;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ValueMap;
+import org.apache.sling.jcr.resource.JcrResourceConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,10 +36,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ConfigResourceVisitor extends AbstractResourceVisitor {
+    private static Logger log = LoggerFactory.getLogger(ConfigResourceVisitor.class);
+
     private static final String BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH = "/etc/acs-commons/bulk-workflow-manager";
     private static final String NT_PAGE_CONTENT = "cq:PageContent";
     private static final String[] ACCEPTED_PRIMARY_TYPES = new String[]{NameConstants.NT_PAGE, NT_PAGE_CONTENT};
-    private static Logger log = LoggerFactory.getLogger(ConfigResourceVisitor.class);
     private List<Resource> configurations = new ArrayList<Resource>();
 
     public final List<Resource> getConfigs() {
@@ -66,11 +68,10 @@ public class ConfigResourceVisitor extends AbstractResourceVisitor {
         final ValueMap properties = resource.adaptTo(ValueMap.class);
 
         // Ensure jcr:primaryType = cq:PageContent and 
-        // that the sling:resourceType is that of Bulk Workflow Manager Page and
-        // that the Bulk Workflow Manager Page has been marked as "Stopped by Bundle Deactivation"
+        // that the sling:resourceType is that of Bulk Workflow Manager Page
         if (NT_PAGE_CONTENT.equals(properties.get(JcrConstants.JCR_PRIMARYTYPE, String.class))) {
             if (StringUtils.equals(BulkWorkflowEngine.SLING_RESOURCE_TYPE,
-                    properties.get("sling:resourceType", String.class))) {
+                    properties.get(JcrResourceConstants.SLING_RESOURCE_TYPE_PROPERTY, String.class))) {
                 this.configurations.add(resource);
             }
         }

@@ -46,19 +46,17 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
-
-/**
- * jcr:content/workspace@activePayloadGroups=[...]
- * jcr:content/workspace@activePayloads=[...]
- */
-
 @Model(adaptables = Resource.class)
 public class Workspace {
+
+    public static final String NT_UNORDERED = "oak:Unstructured";
+
     public static final String NN_FAILURES = "failures";
     public static final String NN_FAILURE = "failure";
+    public static final String NN_WORKSPACE = "workspace";
+    public static final String NN_PAYLOADS = "payloads";
     public static final String PN_ACTIVE_PAYLOAD_GROUPS = "activePayloadGroups";
     public static final String PN_ACTIVE_PAYLOADS = "activePayloads";
-    public static final String NN_WORKSPACE = "workspace";
     public static final String PN_STATUS = "status";
     public static final String PN_SUB_STATUS = "subStatus";
     private static final Logger log = LoggerFactory.getLogger(Workspace.class);
@@ -163,9 +161,8 @@ public class Workspace {
         }
     }
 
-    /**
-     * Getters
-     **/
+    /** Getters **/
+
     public Calendar getCompletedAt() {
         return completedAt;
     }
@@ -218,51 +215,14 @@ public class Workspace {
         return EnumUtils.getEnum(Status.class, status);
     }
 
-    /**
-     * Setters
-     */
-    public void setStatus(Status status) {
-        this.status = status.toString();
-        properties.put(PN_STATUS, this.status);
-        // Clear subStatus
-        subStatus = null;
-        properties.remove(PN_SUB_STATUS);
-    }
-
-    public SubStatus getSubStatus() {
-        // Refresh state before getting the status.
-        // Note, this gets the value from the session state, and not the cached Sling Model value as this value can change over the life of the SlingModel.
-        resourceResolver.refresh();
-        subStatus = resource.getValueMap().get(PN_SUB_STATUS, String.class);
-
-        if (subStatus != null) {
-            return EnumUtils.getEnum(SubStatus.class, subStatus);
-        } else {
-            return null;
-        }
-    }
-
     public Calendar getStoppedAt() {
         return stoppedAt;
-    }
-
-    public void setStoppedAt(Calendar stoppedAt) {
-        this.stoppedAt = stoppedAt;
-        properties.put(PN_STOPPED_AT, this.stoppedAt);
     }
 
     public boolean isInitialized() {
         return initialized;
     }
 
-    public void setInitialized(boolean initialized) {
-        this.initialized = initialized;
-        properties.put(PN_INITIALIZED, this.initialized);
-    }
-
-    public boolean isResumable() {
-        return Status.STOPPED.equals(getStatus()) && SubStatus.DEACTIVATED.equals(getSubStatus());
-    }
 
     public boolean isRunning() {
         return Status.RUNNING.equals(getStatus());
@@ -286,6 +246,57 @@ public class Workspace {
 
     public boolean isActive(PayloadGroup payloadGroup) {
         return ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath());
+    }
+
+    public String getPath() {
+        return resource.getPath();
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public String getActionManagerName() {
+        return actionManagerName;
+    }
+
+    public List<Failure> getFailures() {
+        return failures;
+    }
+
+
+    /** Setters **/
+
+    public void setStatus(Status status) {
+        this.status = status.toString();
+        properties.put(PN_STATUS, this.status);
+        // Clear subStatus
+        subStatus = null;
+        properties.remove(PN_SUB_STATUS);
+    }
+
+    public SubStatus getSubStatus() {
+        // Refresh state before getting the status.
+        // Note, this gets the value from the session state, and not the cached Sling Model value as this value can change over the life of the SlingModel.
+        resourceResolver.refresh();
+        subStatus = resource.getValueMap().get(PN_SUB_STATUS, String.class);
+
+        if (subStatus != null) {
+            return EnumUtils.getEnum(SubStatus.class, subStatus);
+        } else {
+            return null;
+        }
+    }
+
+    public void setStoppedAt(Calendar stoppedAt) {
+        this.stoppedAt = stoppedAt;
+        properties.put(PN_STOPPED_AT, this.stoppedAt);
+    }
+
+
+    public void setInitialized(boolean initialized) {
+        this.initialized = initialized;
+        properties.put(PN_INITIALIZED, this.initialized);
     }
 
     public void setStatus(Status status, SubStatus subStatus) {
@@ -318,9 +329,23 @@ public class Workspace {
         return failCount;
     }
 
-    /**
-     * Internal Implementation Details
-     **/
+
+    public void setError(String message) {
+        setStatus(Status.STOPPED, SubStatus.ERROR);
+        setMessage(message);
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+        properties.put(PN_MESSAGE, message);
+    }
+
+    public void setActionManagerName(String name) {
+        this.actionManagerName = name;
+        properties.put(PN_ACTION_MANAGER_NAME, name);
+    }
+
+    /** Internal logic proxies **/
 
     public void addActivePayload(Payload payload) {
         if (!ArrayUtils.contains(activePayloads, payload.getPath())) {
@@ -415,7 +440,8 @@ public class Workspace {
     }
 
     public void addFailure(String payloadPath, String trackPath, Calendar failedAt) throws RepositoryException {
-        Node failure = JcrUtils.getOrCreateByPath(resource.getChild("failures").adaptTo(Node.class), "failure", true, "oak:Unstructured", "oak:Unstructured", false);
+        Node failure = JcrUtils.getOrCreateByPath(resource.getChild(Workspace.NN_FAILURES).adaptTo(Node.class),
+                Workspace.NN_FAILURE, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
 
         JcrUtil.setProperty(failure, Failure.PN_PAYLOAD_PATH, payloadPath);
 
@@ -428,9 +454,6 @@ public class Workspace {
         }
     }
 
-    public List<Failure> getFailures() {
-        return failures;
-    }
 
     /**
      * Commit the changes for this bulk workflow manager execution.
@@ -441,30 +464,5 @@ public class Workspace {
         config.commit();
     }
 
-    public String getPath() {
-        return resource.getPath();
-    }
 
-    public void setError(String message) {
-        setStatus(Status.STOPPED, SubStatus.ERROR);
-        setMessage(message);
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-        properties.put(PN_MESSAGE, message);
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public String getActionManagerName() {
-        return actionManagerName;
-    }
-
-    public void setActionManagerName(String name) {
-        this.actionManagerName = name;
-        properties.put(PN_ACTION_MANAGER_NAME, name);
-    }
 }

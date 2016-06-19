@@ -47,10 +47,9 @@ import java.util.Map;
 @Component
 @Service
 public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
+    private static final Logger log = LoggerFactory.getLogger(BulkWorkflowEngineImpl.class);
 
     private static final String BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH = "/etc/acs-commons/bulk-workflow-manager";
-
-    private static final Logger log = LoggerFactory.getLogger(BulkWorkflowEngineImpl.class);
 
     @Reference
     private QueryHelper queryHelper;
@@ -77,10 +76,14 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
         Workspace workspace = config.getWorkspace();
 
         workspace.getRunner().start(workspace);
-        Runnable job = workspace.getRunner().run(config);
-        if (job != null) {
-            ScheduleOptions options = workspace.getRunner().getOptions(config);
+
+        Runnable job = workspace.getRunner().getRunnable(config);
+        ScheduleOptions options = workspace.getRunner().getOptions(config);
+
+        if (options != null) {
             scheduler.schedule(job, options);
+        } else {
+            job.run();
         }
 
         workspace.commit();
@@ -131,9 +134,9 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
 
             final List<Resource> configs = visitor.getConfigs();
             for (Resource config : configs) {
-                ModifiableValueMap properties = config.getChild("workspace").adaptTo(ModifiableValueMap.class);
+                ModifiableValueMap properties = config.getChild(Workspace.NN_WORKSPACE).adaptTo(ModifiableValueMap.class);
 
-                if (StringUtils.equals(Status.RUNNING.name(), properties.get("status", String.class))) {
+                if (StringUtils.equals(Status.RUNNING.name(), properties.get(Workspace.PN_STATUS, String.class))) {
                     properties.put(Workspace.PN_STATUS, Status.STOPPED.name());
                     properties.put(Workspace.PN_SUB_STATUS, SubStatus.DEACTIVATED.name());
                 }

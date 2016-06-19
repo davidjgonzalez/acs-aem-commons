@@ -100,6 +100,7 @@ public class StatusServlet extends SlingAllMethodsServlet {
 
             json.put("purgeWorkflow", config.isPurgeWorkflow());
             json.put("interval", config.getInterval());
+            json.put("retryCount", config.getRetryCount());
             json.put("timeout", config.getTimeout());
             json.put("throttle", config.getThrottle());
             json.put("message", workspace.getMessage());
@@ -109,10 +110,10 @@ public class StatusServlet extends SlingAllMethodsServlet {
                     && !Status.COMPLETED.equals(workspace.getStatus())) {
                 // If Complete, then look to JCR for final accounts as ActionManager may be gone
                 addActionManagerTrackedCounts(workspace.getActionManagerName(), json);
-                for(com.adobe.acs.commons.fam.Failure failure : actionManager.getFailureList()) {
+                for (com.adobe.acs.commons.fam.Failure failure : actionManager.getFailureList()) {
                     JSONObject failureJSON = new JSONObject();
-                    json.put(Failure.PN_PATH, failure.getNodePath());
-                    json.put(Failure.PN_FAILED_AT, sdf.format(failure.getTime().getTime()));
+                    failureJSON.put(Failure.PN_PAYLOAD_PATH, failure.getNodePath());
+                    failureJSON.put(Failure.PN_FAILED_AT, sdf.format(failure.getTime().getTime()));
                     json.accumulate("failures", failureJSON);
                 }
             } else {

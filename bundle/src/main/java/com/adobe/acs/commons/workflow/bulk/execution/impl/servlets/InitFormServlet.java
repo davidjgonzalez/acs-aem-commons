@@ -21,6 +21,9 @@
 package com.adobe.acs.commons.workflow.bulk.execution.impl.servlets;
 
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowEngine;
+import com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl;
+import com.adobe.acs.commons.workflow.bulk.execution.impl.runners.FastActionManagerRunnerImpl;
+import com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl;
 import com.day.cq.workflow.WorkflowException;
 import com.day.cq.workflow.WorkflowService;
 import com.day.cq.workflow.WorkflowSession;
@@ -67,11 +70,11 @@ public class InitFormServlet extends SlingAllMethodsServlet {
         // Runners
         try {
             json.accumulate("runnerTypes", new JSONObject().put("label", "AEM Workflow").put("value",
-                    "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl"));
+                    AEMWorkflowRunnerImpl.class.getName()));
             json.accumulate("runnerTypes", new JSONObject().put("label", "Synthetic Workflow").put("value",
-                    "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl"));
+                    SyntheticWorkflowRunnerImpl.class.getName()));
             json.accumulate("runnerTypes", new JSONObject().put("label", "Synthetic Workflow w/ FAM").put("value",
-                    "com.adobe.acs.commons.workflow.bulk.execution.impl.runners.FastActionManagerRunnerImpl"));
+                    FastActionManagerRunnerImpl.class.getName()));
 
         } catch (JSONException e) {
             log.error("Could not create JSON for Bulk Workflow Runner options");
@@ -81,15 +84,14 @@ public class InitFormServlet extends SlingAllMethodsServlet {
         // Query Types
         try {
             json.accumulate("queryTypes", new JSONObject().put("label", "QueryBuilder").put("value", "queryBuilder"));
-            json.accumulate("queryTypes", new JSONObject().put("label", "xPath").put("value", "xpath"));
             json.accumulate("queryTypes", new JSONObject().put("label", "List").put("value", "list"));
+            json.accumulate("queryTypes", new JSONObject().put("label", "xPath").put("value", "xpath"));
             json.accumulate("queryTypes", new JSONObject().put("label", "JCR-SQL2").put("value", "JCR-SQL2"));
             json.accumulate("queryTypes", new JSONObject().put("label", "JCR-SQL").put("value", "JCR-SQL"));
         } catch (JSONException e) {
-            log.error("Could not create JSON for QueryType options");
+            log.error("Could not create JSON for QueryType options", e);
             throw new ServletException(e);
         }
-        ;
 
         // Workflow Models
         final WorkflowSession workflowSession = workflowService.getWorkflowSession(
@@ -105,17 +107,18 @@ public class InitFormServlet extends SlingAllMethodsServlet {
                     jsonWorkflow.put("value", workflowModel.getId());
                     json.accumulate("workflowModels", jsonWorkflow);
                 } catch (JSONException e) {
-                    log.error("Could not add workflow [ {} - {} ] to Workflow Models dropdown JSON object",
+                    log.error("Could not add workflow [ {} - {} ] to Workflow Models drop-down JSON object",
                             workflowModel.getTitle(), workflowModel.getId());
+                    throw new ServletException(e);
                 }
             }
 
             response.getWriter().write(json.toString());
         } catch (WorkflowException e) {
-            log.error("Could not create workflow model drop-down due to: {}", e);
+            log.error("Could not create workflow model drop-down.", e);
 
             JSONErrorUtil.sendJSONError(response, SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "Could not collect Workflows",
+                    "Could not collect workflows",
                     e.getMessage());
         }
     }

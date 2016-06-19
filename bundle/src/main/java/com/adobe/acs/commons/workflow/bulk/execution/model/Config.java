@@ -50,7 +50,7 @@ public class Config {
     private String queryStatement;
 
     @Inject
-    @Default(values = "querybuilder")
+    @Default(values = "queryBuilder")
     private String queryType;
 
     @Inject
@@ -98,18 +98,6 @@ public class Config {
         return throttle;
     }
 
-    public void setThrottle(int throttle) {
-        if (throttle < 1) {
-            throttle = 0;
-        }
-
-        this.throttle = throttle;
-        properties.put("throttle", this.throttle);
-    }
-
-    public boolean isPurgeWorkflow() {
-        return purgeWorkflow;
-    }
 
     public int getBatchSize() {
         return batchSize;
@@ -117,15 +105,6 @@ public class Config {
 
     public int getInterval() {
         return interval;
-    }
-
-    public void setInterval(int interval) {
-        if (interval < 1) {
-            interval = 0;
-        }
-
-        this.interval = interval;
-        properties.put("interval", this.interval);
     }
 
     public String getRelativePath() {
@@ -170,6 +149,32 @@ public class Config {
 
         return this.workspace;
     }
+
+    public boolean isPurgeWorkflow() {
+        return purgeWorkflow;
+    }
+
+    /** Setters **/
+
+    public void setInterval(int interval) {
+        if (interval < 1) {
+            interval = 0;
+        }
+
+        this.interval = interval;
+        properties.put("interval", this.interval);
+    }
+
+    public void setThrottle(int throttle) {
+        if (throttle < 1) {
+            throttle = 0;
+        }
+
+        this.throttle = throttle;
+        properties.put("throttle", this.throttle);
+    }
+
+    /** Commit **/
 
     public void commit() throws PersistenceException {
         if (this.getResourceResolver().hasChanges()) {

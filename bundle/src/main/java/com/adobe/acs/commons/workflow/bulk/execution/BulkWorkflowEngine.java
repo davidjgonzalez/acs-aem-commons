@@ -20,7 +20,6 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution;
 
-
 import aQute.bnd.annotation.ProviderType;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
 import org.apache.sling.api.resource.PersistenceException;

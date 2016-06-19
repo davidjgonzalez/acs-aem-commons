@@ -49,6 +49,7 @@ public class Payload {
     private static final String PN_WORKFLOW_INSTANCE_ID = "workflowInstanceId";
     private static final String PN_STATUS = "status";
     private static final String PN_PATH = "path";
+    public static final String NN_PAYLOAD = "payload";
 
     private ModifiableValueMap properties;
 
@@ -85,11 +86,6 @@ public class Payload {
         return EnumUtils.getEnum(Status.class, status);
     }
 
-    public void setStatus(Status status) {
-        this.status = status.toString();
-        properties.put(PN_STATUS, this.status);
-    }
-
     public String getPayloadPath() {
         return path;
     }
@@ -98,10 +94,46 @@ public class Payload {
         return resource.getPath();
     }
 
+    public PayloadGroup getPayloadGroup() {
+        return resource.getParent().adaptTo(PayloadGroup.class);
+    }
+
+    public Workflow getWorkflow() throws WorkflowException {
+        final WorkflowSession workflowSession =
+                workflowService.getWorkflowSession(resource.getResourceResolver().adaptTo(Session.class));
+        try {
+            return workflowSession.getWorkflow(workflowInstanceId);
+        } catch (Exception e) {
+            log.error("Could not get workflow with id [ {} ]", workflowInstanceId, e);
+        }
+
+        return null;
+    }
+
+    public String getWorkflowInstanceId() {
+        if (StringUtils.isNotBlank(workflowInstanceId)) {
+            resource.getResourceResolver().refresh();
+            workflowInstanceId = properties.get(PN_WORKFLOW_INSTANCE_ID, String.class);
+        }
+
+        return workflowInstanceId;
+    }
+
+    public boolean isOnboarded() {
+        Status status = getStatus();
+        return (status != null && !Status.NOT_STARTED.equals(status));
+    }
+
+    /** Setters **/
+
+    public void setStatus(Status status) {
+        this.status = status.toString();
+        properties.put(PN_STATUS, this.status);
+    }
+
     public void updateWith(Workflow workflow) throws PersistenceException {
 
         if (StringUtils.isBlank(getWorkflowInstanceId())) {
-            log.debug("Setting workflow instance id: {}", getWorkflowInstanceId());
             workflowInstanceId = workflow.getId();
             properties.put(PN_WORKFLOW_INSTANCE_ID, workflowInstanceId);
         } else if (!StringUtils.equals(getWorkflowInstanceId(), workflow.getId())) {
@@ -114,42 +146,12 @@ public class Payload {
         }
     }
 
-    public PayloadGroup getPayloadGroup() {
-        return resource.getParent().adaptTo(PayloadGroup.class);
-    }
-
-    public Workflow getWorkflow() throws WorkflowException {
-        final WorkflowSession workflowSession =
-                workflowService.getWorkflowSession(resource.getResourceResolver().adaptTo(Session.class));
-        try {
-            return workflowSession.getWorkflow(workflowInstanceId);
-        } catch (WorkflowException e) {
-            log.error("Could not get workflow with id [ {} ]", workflowInstanceId, e);
-        } catch (Exception e) {
-            log.error("Could not get workflow with id [ {} ]", workflowInstanceId, e);
-        }
-
-        return null;
-    }
-
-    public boolean isOnboarded() {
-        Status status = getStatus();
-        return (status != null && !Status.NOT_STARTED.equals(status));
-    }
+    /** Renditions **/
 
     public JSONObject toJSON() throws JSONException {
         JSONObject json = new JSONObject();
         json.put(PN_STATUS, getStatus().toString());
         json.put(PN_PATH, getPayloadPath());
         return json;
-    }
-
-    String getWorkflowInstanceId() {
-        if (StringUtils.isNotBlank(workflowInstanceId)) {
-            resource.getResourceResolver().refresh();
-            workflowInstanceId = properties.get(PN_WORKFLOW_INSTANCE_ID, String.class);
-        }
-
-        return workflowInstanceId;
     }
 }

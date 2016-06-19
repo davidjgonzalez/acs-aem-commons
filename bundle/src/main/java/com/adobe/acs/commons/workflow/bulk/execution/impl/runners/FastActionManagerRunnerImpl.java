@@ -33,7 +33,6 @@ import com.adobe.acs.commons.workflow.bulk.execution.model.Payload;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowModel;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowRunner;
-import com.day.cq.workflow.WorkflowException;
 import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
@@ -44,7 +43,6 @@ import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ResourceResolverFactory;
 import org.apache.sling.commons.scheduler.ScheduleOptions;
-import org.apache.sling.commons.scheduler.Scheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,23 +73,16 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
     @Reference
     private DeferredActions actions;
 
-    @Reference
-    private Scheduler scheduler;
-
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public Runnable run(final Config config) {
-        new FAMRunnable(config.getPath()).run();
-
-        return null;
+    public final Runnable getRunnable(final Config config) {
+        return new FastActionManagerRunnable(config);
     }
 
     @Override
     public ScheduleOptions getOptions(Config config) {
-        ScheduleOptions options = scheduler.NOW();
-        options.canRunConcurrently(false);
-        options.onLeaderOnly(true);
-        options.name(config.getWorkspace().getJobName());
-
         return null;
     }
 
@@ -100,8 +91,6 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
         Workspace workspace = config.getWorkspace();
         initialize(workspace, 0);
         workspace.commit();
-
-        new FAMRunnable(config.getPath()).run();
     }
 
     @Override
@@ -179,18 +168,16 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
         throw new UnsupportedOperationException("FAM jobs cannot be force terminated");
     }
 
+    /** Runner's Runnable **/
 
-    /*******************/
-
-    private class FAMRunnable implements Runnable {
+    private class FastActionManagerRunnable implements Runnable {
         private final String configPath;
 
-        public FAMRunnable(String configPath) {
-            this.configPath = configPath;
+        public FastActionManagerRunnable(Config config) {
+            this.configPath = config.getPath();
         }
 
         public void run() {
-            // Query for all candidate resources
             ResourceResolver resourceResolver;
             Resource configResource;
 
@@ -207,6 +194,8 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
                     return;
                 }
 
+                /** Collect and initialize the workspace **/
+
                 final List<Resource> resources;
                 resources = queryHelper.findResources(resourceResolver,
                         config.getQueryType(),
@@ -219,7 +208,7 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
                 final ActionManager manager = actionManagerFactory.createTaskManager(
                         "Bulk Workflow Manager @ " + config.getPath(),
                         resourceResolver,
-                        config.getInterval());
+                        config.getBatchSize());
 
                 final SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(
                         resourceResolver,
@@ -230,57 +219,54 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
                 workspace.setActionManagerName(manager.getName());
                 workspace.commit();
 
+                /** Begin the work of processing the results **/
+
                 final AtomicInteger processed = new AtomicInteger(0);
                 final AtomicInteger success = new AtomicInteger(0);
 
                 final String workspacePath = workspace.getPath();
                 final int total = resources.size();
                 final int retryCount = config.getRetryCount();
-                final int retryPause = config.getInterval();
+                    final int retryPause = config.getInterval();
 
                 for (final Resource resource : resources) {
                     final String path = resource.getPath();
 
-                    // Within `withResolver` re-obtain JCR state using the provided RR
                     manager.deferredWithResolver(new Consumer<ResourceResolver>() {
                         @Override
                         public void accept(ResourceResolver r) throws Exception {
-                            try {
-                                manager.setCurrentItem(path);
+                        try {
+                            manager.setCurrentItem(path);
 
-                                if (retryCount > 0) {
-                                    try {
-                                        actions.retryAll(retryCount, retryPause, actions.startSyntheticWorkflows(model)).accept(r, path);
-                                        success.incrementAndGet();
-                                    } catch (Exception e) {
-                                        log.error("WTH Could not process [ {} ] with [ " + retryCount + " ] retries", path, e);
-                                        throw e;
-                                    }
-                                } else {
-                                    try {
-                                        actions.startSyntheticWorkflows(model).accept(r, path);
-                                        success.incrementAndGet();
-                                    } catch (Exception e) {
-                                        log.error("WTH Could not process [ {} ]", path, e);
-                                        throw e;
-                                    }
+                            if (retryCount > 0) {
+                                try {
+                                    actions.retryAll(retryCount, retryPause, actions.startSyntheticWorkflows(model)).accept(r, path);
+                                    success.incrementAndGet();
+                                } catch (Exception e) {
+                                    log.warn("Could not process [ {} ] with [ " + retryCount + " ] retries", path, e);
+                                    // Must throw the exception so defferedWithResolver and pick up the failure
+                                    throw e;
                                 }
-                            } finally {
-                                if (processed.incrementAndGet() == total) {
-                                    complete(workspacePath, manager, success.get());
+                            } else {
+                                try {
+                                    actions.startSyntheticWorkflows(model).accept(r, path);
+                                    success.incrementAndGet();
+                                } catch (Exception e) {
+                                    log.warn("Could not process [ {} ]", path, e);
+                                    // Must throw the exception so defferedWithResolver and pick up the failure
+                                    throw e;
                                 }
                             }
+                        } finally {
+                            if (processed.incrementAndGet() == total) {
+                                complete(workspacePath, manager, success.get());
+                            }
+                        }
                         }
                     });
                 }
-            } catch (LoginException e) {
-                log.error("Could not obtain resource resolver", e);
-            } catch (RepositoryException e) {
-                log.error("Repository exception occurred when processing FAM-based bulk workflow", e);
-            } catch (PersistenceException e) {
-                log.error("Persistence exception occurred when processing FAM-based bulk workflow", e);
-            } catch (WorkflowException e) {
-                log.error("Workflow exception occurred when processing FAM-based bulk workflow", e);
+            } catch (Exception e) {
+                log.error("Error occurred while processing Fast Action Manager Synthetic Workflow via Bulk Workflow Manager", e);
             }
         }
 

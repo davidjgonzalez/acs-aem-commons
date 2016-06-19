@@ -33,6 +33,7 @@ import java.util.List;
 @Model(adaptables = Resource.class)
 public class PayloadGroup {
     private static final Logger log = LoggerFactory.getLogger(PayloadGroup.class);
+    public static final String PN_NEXT = "next";
 
     private final Resource resource;
 

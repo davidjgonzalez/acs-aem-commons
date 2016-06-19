@@ -34,10 +34,12 @@ import java.util.Calendar;
 
 @Model(adaptables = Resource.class)
 public class Failure {
+    private static final Logger log = LoggerFactory.getLogger(Failure.class);
+
     public static final String PN_PATH = "path";
     public static final String PN_PAYLOAD_PATH = "payloadPath";
     public static final String PN_FAILED_AT = "failedAt";
-    private static final Logger log = LoggerFactory.getLogger(Failure.class);
+
     @Inject
     @Optional
     private String path;

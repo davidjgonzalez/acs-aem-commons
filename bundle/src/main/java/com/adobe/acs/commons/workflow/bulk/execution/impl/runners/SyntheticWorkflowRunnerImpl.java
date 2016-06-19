@@ -72,148 +72,9 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
     @Reference
     private ThrottledTaskRunner throttledTaskRunner;
 
-    public final Runnable run(final Config jobConfig) {
-        final Runnable job = new Runnable() {
-            private String configPath = jobConfig.getPath();
-
-            public void run() {
-                ResourceResolver jobResourceResolver = null;
-                Resource configResource = null;
-                long start = System.currentTimeMillis();
-                int total = 0;
-                boolean stopped = false;
-
-                try {
-                    jobResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
-                    configResource = jobResourceResolver.getResource(configPath);
-
-                    final Config config = configResource.adaptTo(Config.class);
-                    final Workspace workspace = config.getWorkspace();
-
-                    if (workspace.isStopped()) {
-                        return;
-                    }
-
-                    try {
-                        SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(jobResourceResolver, config.getWorkflowModelId(), true);
-                        jobResourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("changedByWorkflowProcess");
-
-                        PayloadGroup payloadGroup = null;
-                        if (workspace.getActivePayloadGroups().size() > 0) {
-                            payloadGroup = workspace.getActivePayloadGroups().get(0);
-                        }
-
-                        while (payloadGroup != null) {
-                            List<Payload> payloads = workspace.getActivePayloads();
-
-                            if (payloads.size() == 0) {
-                                // payloads size is 0, so onboard next payload group
-                                payloadGroup = onboardNextPayloadGroup(workspace, payloadGroup);
-
-                                if (payloadGroup != null) {
-                                    payloads = onboardNextPayloads(workspace, payloadGroup);
-                                }
-                            }
-
-                            // Safety check; if payloads comes in null then immediately break from loop as there is no work to do
-                            if (payloads == null || payloads.size() == 0) {
-                                break;
-                            }
-
-                            int batchCount = 0;
-                            for (Payload payload : payloads) {
-
-                                if (workspace.isStopping() || workspace.isStopped()) {
-                                    stop(workspace);
-                                    stopped = true;
-                                    break;
-                                }
-
-                                try {
-                                    // Wait before starting more work
-                                    throttledTaskRunner.waitForLowCpuAndLowMemory();
-
-                                    long processStart = System.currentTimeMillis();
-                                    swr.execute(jobResourceResolver, payload.getPayloadPath(), model, false, false);
-                                    complete(workspace, payload);
-                                    log.info("Processed [ {} ] in {} ms", payload.getPayloadPath(), System.currentTimeMillis() - processStart);
-                                } catch (WorkflowException e) {
-                                    fail(workspace, payload);
-                                    log.warn("Synthetic Workflow could not process [ {} ]", payload.getPath(), e);
-                                } catch (Exception e) {
-                                    // Complete call failed; consider it failed
-                                    log.warn("Complete call on [ {} ] failed", payload.getPath(), e);
-                                    fail(workspace, payload);
-                                }
-
-                                batchCount++;
-                                total++;
-                            } // end for
-
-                            // Save the Payload Group batch
-                            //long batchStart = System.currentTimeMillis();
-                            workspace.commit();
-
-                            /*
-                            if (log.isDebugEnabled()) {
-                                log.debug("Save last batch of [ {} ] payloads in {} ms", batchCount, System.currentTimeMillis() - batchStart);
-                                log.debug("Running total of [ {} ] payloads saved in {} ms", total, System.currentTimeMillis() - start);
-                            }
-                            */
-
-                            if (stopped) {
-                                log.info("Bulk Synthetic Workflow run has been stopped.");
-                                break;
-                            } /*else if (payloadGroup != null && !payloadGroup.isLast() && config.getThrottle() > 0) {
-                                log.debug("Sleeping bulk workflow synthetic execution for {} seconds", config.getThrottle());
-                                Thread.sleep(config.getThrottle() * 1000);
-                            } */
-                        }
-
-                        // Stop check in case a STOP request is made that breaks the while loop
-                        if (!stopped) {
-                            complete(workspace);
-                        }
-
-                        log.info("Grand total of [ {} ] payloads saved in {} ms", total, System.currentTimeMillis() - start);
-                    } catch (Exception e) {
-                        log.error("Error processing Bulk Synthetic Workflow execution.", e);
-                    }
-                } catch (LoginException e) {
-                    log.error("Error processing Bulk Synthetic Workflow execution.", e);
-                } finally {
-                    if (jobResourceResolver != null) {
-                        jobResourceResolver.close();
-                    }
-                }
-            }
-
-            private PayloadGroup onboardNextPayloadGroup(Workspace workspace, PayloadGroup currentPayloadGroup) throws PersistenceException {
-                PayloadGroup nextPayloadGroup = currentPayloadGroup.getNextPayloadGroup();
-                workspace.removeActivePayloadGroup(currentPayloadGroup);
-
-                if (nextPayloadGroup != null) {
-                    workspace.addActivePayloadGroup(nextPayloadGroup);
-                }
-
-                return nextPayloadGroup;
-            }
-
-            private List<Payload> onboardNextPayloads(Workspace workspace, PayloadGroup payloadGroup) throws PersistenceException {
-                if (payloadGroup == null) {
-                    return ListUtils.EMPTY_LIST;
-                }
-
-                List<Payload> payloads = payloadGroup.getPayloads();
-                if (payloads.size() > 0) {
-                    workspace.addActivePayloads(payloads);
-                }
-
-                return payloads;
-            }
-        };
-
-        return job;
+    @Override
+    public final Runnable getRunnable(final Config config) {
+        return new SyntheticWorkflowRunnable(config);
     }
 
     @Override
@@ -241,6 +102,139 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
     @Override
     public void run(Workspace workspace, Payload payload) {
         super.run(workspace, payload);
+    }
+
+
+    /** Runner's Runnable **/
+
+    private class SyntheticWorkflowRunnable implements Runnable {
+        private String configPath;
+
+        public SyntheticWorkflowRunnable(Config config) {
+            this.configPath = config.getPath();
+        }
+
+        public void run() {
+            ResourceResolver jobResourceResolver = null;
+            Resource configResource = null;
+            long start = System.currentTimeMillis();
+            int total = 0;
+            boolean stopped = false;
+
+            try {
+                jobResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
+                configResource = jobResourceResolver.getResource(configPath);
+
+                final Config config = configResource.adaptTo(Config.class);
+                final Workspace workspace = config.getWorkspace();
+
+                if (workspace.isStopped()) {
+                    return;
+                }
+
+                try {
+                    SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(jobResourceResolver, config.getWorkflowModelId(), true);
+                    jobResourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("changedByWorkflowProcess");
+
+                    PayloadGroup payloadGroup = null;
+                    if (workspace.getActivePayloadGroups().size() > 0) {
+                        payloadGroup = workspace.getActivePayloadGroups().get(0);
+                    }
+
+                    while (payloadGroup != null) {
+                        List<Payload> payloads = workspace.getActivePayloads();
+
+                        if (payloads.size() == 0) {
+                            // payloads size is 0, so onboard next payload group
+                            payloadGroup = onboardNextPayloadGroup(workspace, payloadGroup);
+
+                            if (payloadGroup != null) {
+                                payloads = onboardNextPayloads(workspace, payloadGroup);
+                            }
+                        }
+
+                        // Safety check; if payloads comes in null then immediately break from loop as there is no work to do
+                        if (payloads == null || payloads.size() == 0) {
+                            break;
+                        }
+
+                        for (Payload payload : payloads) {
+
+                            if (workspace.isStopping() || workspace.isStopped()) {
+                                stop(workspace);
+                                stopped = true;
+                                break;
+                            }
+
+                            try {
+                                // Wait before starting more work
+                                throttledTaskRunner.waitForLowCpuAndLowMemory();
+
+                                long processStart = System.currentTimeMillis();
+                                swr.execute(jobResourceResolver, payload.getPayloadPath(), model, false, false);
+                                complete(workspace, payload);
+                                log.info("Processed [ {} ] in {} ms", payload.getPayloadPath(), System.currentTimeMillis() - processStart);
+                            } catch (WorkflowException e) {
+                                fail(workspace, payload);
+                                log.warn("Synthetic Workflow could not process [ {} ]", payload.getPath(), e);
+                            } catch (Exception e) {
+                                // Complete call failed; consider it failed
+                                log.warn("Complete call on [ {} ] failed", payload.getPath(), e);
+                                fail(workspace, payload);
+                            }
+
+                            total++;
+                        } // end for
+
+                        workspace.commit();
+
+                        if (stopped) {
+                            log.info("Bulk Synthetic Workflow run has been stopped.");
+                            break;
+                        }
+                    } // end while
+
+                    // Stop check in case a STOP request is made that breaks the while loop
+                    if (!stopped) {
+                        complete(workspace);
+                    }
+
+                    log.info("Grand total of [ {} ] payloads saved in {} ms", total, System.currentTimeMillis() - start);
+                } catch (Exception e) {
+                    log.error("Error processing Bulk Synthetic Workflow execution.", e);
+                }
+            } catch (LoginException e) {
+                log.error("Error processing Bulk Synthetic Workflow execution.", e);
+            } finally {
+                if (jobResourceResolver != null) {
+                    jobResourceResolver.close();
+                }
+            }
+        }
+
+        private PayloadGroup onboardNextPayloadGroup(Workspace workspace, PayloadGroup currentPayloadGroup) throws PersistenceException {
+            PayloadGroup nextPayloadGroup = currentPayloadGroup.getNextPayloadGroup();
+            workspace.removeActivePayloadGroup(currentPayloadGroup);
+
+            if (nextPayloadGroup != null) {
+                workspace.addActivePayloadGroup(nextPayloadGroup);
+            }
+
+            return nextPayloadGroup;
+        }
+
+        private List<Payload> onboardNextPayloads(Workspace workspace, PayloadGroup payloadGroup) throws PersistenceException {
+            if (payloadGroup == null) {
+                return ListUtils.EMPTY_LIST;
+            }
+
+            List<Payload> payloads = payloadGroup.getPayloads();
+            if (payloads.size() > 0) {
+                workspace.addActivePayloads(payloads);
+            }
+
+            return payloads;
+        }
     }
 }
 

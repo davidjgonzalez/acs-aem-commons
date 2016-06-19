@@ -91,14 +91,14 @@
         </tr>
 
 
-        <tr class="coral-Table-row">
-            <td class="coral-Table-cell">Save Interval</td>
-            <td class="coral-Table-cell">{{ data.status.interval }}</td>
+        <tr class="coral-Table-row" ng-show="data.status.retryCount > 0">
+            <td class="coral-Table-cell">Retries</td>
+            <td class="coral-Table-cell">{{ data.status.retryCount }} every {{ data.status.interval }} seconds </td>
         </tr>
 
 
         <tr class="coral-Table-row">
-            <td class="coral-Table-cell">Update Granularity</td>
+            <td class="coral-Table-cell">Commit Size</td>
             <td class="coral-Table-cell">{{ data.status.batchSize }}</td>
         </tr>
 
