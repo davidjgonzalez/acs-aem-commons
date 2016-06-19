@@ -1,9 +1,6 @@
 /*
- * #%L
- * ACS AEM Commons Bundle
- * %%
- * Copyright (C) 2016 Adobe
- * %%
+ * Copyright 2016 Adobe.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,15 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * #L%
  */
-
 package com.adobe.acs.commons.fam;
 
-import com.adobe.acs.commons.functions.BiConsumer;
-import com.adobe.acs.commons.functions.BiFunction;
-import com.adobe.acs.commons.functions.Consumer;
-import com.adobe.acs.commons.functions.Function;
+import aQute.bnd.annotation.ProviderType;
+import com.adobe.acs.commons.functions.*;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowModel;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowRunner;
 import com.adobe.granite.asset.api.Asset;
@@ -34,20 +27,20 @@ import com.day.cq.replication.ReplicationActionType;
 import com.day.cq.replication.ReplicationException;
 import com.day.cq.replication.ReplicationOptions;
 import com.day.cq.replication.Replicator;
+import java.util.Iterator;
+import javax.jcr.Session;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 
-import javax.jcr.Session;
-import java.util.Iterator;
-
 /**
  * Various deferred actions to be used with the ActionManager
  */
-@Component
+@Component(metatype = true, immediate = true, label = "Deferred Actions")
 @Service(DeferredActions.class)
+@ProviderType
 public final class DeferredActions {
     @Reference
     private SyntheticWorkflowRunner workflowRunner;
@@ -71,7 +64,6 @@ public final class DeferredActions {
      * @param glob Regex expression
      * @return True for matches
      */
-    @Override
     public BiFunction<ResourceResolver, String, Boolean> filterMatching(final String glob) {
         return new BiFunction<ResourceResolver, String, Boolean>() {
             @Override
@@ -87,7 +79,6 @@ public final class DeferredActions {
      * @param glob Regex expression
      * @return False for matches
      */
-    @Override
     public BiFunction<ResourceResolver, String, Boolean> filterNotMatching(final String glob) {
         return filterMatching(glob).andThen(not);
     }
@@ -96,7 +87,6 @@ public final class DeferredActions {
      * Exclude subassets from processing
      * @return true if node is not a subasset
      */
-    @Override
     public BiFunction<ResourceResolver, String, Boolean> filterOutSubassets() {
         return filterNotMatching(".*?/subassets/.*");
     }
@@ -106,7 +96,6 @@ public final class DeferredActions {
      * It's better to filter via query if possible to avoid having to use this
      * @return True if asset
      */
-    @Override
     public BiFunction<ResourceResolver, String, Boolean> filterNonAssets() {
         return new BiFunction<ResourceResolver, String, Boolean>() {
             @Override
@@ -128,7 +117,6 @@ public final class DeferredActions {
      * @param action Action to attempt
      * @return New retry wrapper around provided action
      */
-    @Override
     public BiConsumer<ResourceResolver, String> retryAll(final int retries, final long pausePerRetry, final BiConsumer<ResourceResolver, String> action) {
         return new BiConsumer<ResourceResolver, String>() {
             @Override
@@ -149,14 +137,13 @@ public final class DeferredActions {
                     }
                 }
             }
-        };        
+        };
     }
 
     /**
      * Run nodes through synthetic workflow
      * @param model Synthetic workflow model
      */
-    @Override
     public BiConsumer<ResourceResolver, String> startSyntheticWorkflows(final SyntheticWorkflowModel model) {
         return new BiConsumer<ResourceResolver, String>() {
             @Override
@@ -175,7 +162,6 @@ public final class DeferredActions {
     /**
      * Remove all renditions except for the original rendition for assets
      */
-    @Override
     public BiConsumer<ResourceResolver, String> removeAllRenditions() {
         return new BiConsumer<ResourceResolver, String>() {
             @Override
@@ -196,7 +182,6 @@ public final class DeferredActions {
     /**
      * Remove all renditions with a given name
      */
-    @Override
     public BiConsumer<ResourceResolver, String> removeAllRenditionsNamed(final String name) {
         return new BiConsumer<ResourceResolver, String>() {
             @Override
@@ -213,11 +198,10 @@ public final class DeferredActions {
             }
         };
     }
-    
+
     /**
      * Activate all nodes using default replicators
      */
-    @Override
     public BiConsumer<ResourceResolver, String> activateAll() {
         return new BiConsumer<ResourceResolver, String>() {
             @Override
@@ -231,7 +215,6 @@ public final class DeferredActions {
     /**
      * Activate all nodes using provided options
      */
-    @Override
     public BiConsumer<ResourceResolver, String> activateAllWithOptions(final ReplicationOptions options) {
         return new BiConsumer<ResourceResolver, String>() {
             @Override
@@ -245,7 +228,6 @@ public final class DeferredActions {
     /**
      * Deactivate all nodes using default replicators
      */
-    @Override
     public BiConsumer<ResourceResolver, String> deactivateAll() {
         return new BiConsumer<ResourceResolver, String>() {
             @Override
@@ -258,9 +240,8 @@ public final class DeferredActions {
 
     /**
      * Deactivate all nodes using provided options
-     * 
+     *
      */
-    @Override
     public BiConsumer<ResourceResolver, String> deactivateAllWithOptions(final ReplicationOptions options) {
         return new BiConsumer<ResourceResolver, String>() {
             @Override
@@ -279,7 +260,6 @@ public final class DeferredActions {
      * @param action Action to attempt
      * @return New retry wrapper around provided action
      */
-    @Override
     public Consumer<ResourceResolver> retry(final int retries, final long pausePerRetry, final Consumer<ResourceResolver> action) {
         return new Consumer<ResourceResolver>() {
             @Override
@@ -300,38 +280,34 @@ public final class DeferredActions {
                     }
                 }
             }
-        };        
+        };
     }
-    
+
     /**
      * Run a synthetic workflow on a single node
      */
-    @Override
     final public Consumer<ResourceResolver> startSyntheticWorkflow(SyntheticWorkflowModel model, String path) {
         return createSingleAction(startSyntheticWorkflows(model), path);
     }
-    
+
     /**
      * Remove all non-original renditions from an asset.
      */
-    @Override
     final public Consumer<ResourceResolver> removeRenditions(String path) {
         return createSingleAction(removeAllRenditions(), path);
     }
-    
+
     /**
      * Remove all renditions with a given name
      */
-    @Override
     final public Consumer<ResourceResolver> removeRenditionsNamed(String path, String name) {
         return createSingleAction(removeAllRenditionsNamed(name), path);
     }
-    
+
 
     /**
      * Activate a single node.
      */
-    @Override
     final public Consumer<ResourceResolver> activate(String path) {
         return createSingleAction(activateAll(), path);
     }
@@ -339,7 +315,6 @@ public final class DeferredActions {
     /**
      * Activate a single node using provided replication options.
      */
-    @Override
     final public Consumer<ResourceResolver> activateWithOptions(String path, ReplicationOptions options) {
         return createSingleAction(activateAllWithOptions(options), path);
     }
@@ -347,7 +322,6 @@ public final class DeferredActions {
     /**
      * Deactivate a single node.
      */
-    @Override
     final public Consumer<ResourceResolver> deactivate(String path) {
         return createSingleAction(deactivateAll(), path);
     }
@@ -355,7 +329,6 @@ public final class DeferredActions {
     /**
      * Deactivate a single node using provided replication options.
      */
-    @Override
     final public Consumer<ResourceResolver> deactivateWithOptions(String path, ReplicationOptions options) {
         return createSingleAction(deactivateAllWithOptions(options), path);
     }

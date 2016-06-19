@@ -33,10 +33,12 @@ import com.adobe.acs.commons.workflow.bulk.execution.model.Payload;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowModel;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowRunner;
+import com.day.cq.workflow.WorkflowException;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.api.resource.LoginException;
+import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.PersistenceException;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
@@ -185,21 +187,19 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
         }
 
         public void run() {
-            final ResourceResolver resourceResolver;
+            // Query for all candidate resources
+            ResourceResolver jobResourceResolver;
+            Resource configResource;
 
             try {
-                resourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
+                jobResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
+                configResource = jobResourceResolver.getResource(configPath);
 
-                final Config config = resourceResolver.getResource(configPath).adaptTo(Config.class);
+                final Config config = configResource.adaptTo(Config.class);
                 final Workspace workspace = config.getWorkspace();
-                final String actionManagerName = "Bulk Workflow Manager @ " + config.getPath();
 
-                if (actionManagerFactory.hasActionManager(actionManagerName)) {
-                    workspace.setError("An Action Manager already exists with the name: " + actionManagerName);
-                    return;
-                }
-
-                final List<Resource> resources = queryHelper.findResources(resourceResolver,
+                final List<Resource> resources;
+                resources = queryHelper.findResources(jobResourceResolver,
                         config.getQueryType(),
                         config.getQueryStatement(),
                         config.getRelativePath());
@@ -209,58 +209,72 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
 
                 final ActionManager manager = actionManagerFactory.createTaskManager(
                         "Bulk Workflow Manager @ " + config.getPath(),
-                        resourceResolver,
-                        config.getBatchSize());
-
+                        jobResourceResolver,
+                        config.getInterval());
                 final SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(
-                        resourceResolver,
+                        jobResourceResolver,
                         config.getWorkflowModelId(),
                         true);
 
-                workspace.setActionManagerName(manager.getName());
                 workspace.setTotalCount(resources.size());
                 workspace.commit();
 
-                final String workspacePath = workspace.getPath();
-                final int total = resources.size();
-                final int retryCount = config.getRetryCount();
-                final int retryPause = config.getInterval();
+                final AtomicInteger completeCount = new AtomicInteger(0);
+                final AtomicInteger failCount = new AtomicInteger(0);
+                final AtomicInteger runningTotal = new AtomicInteger(0);
 
-                final AtomicInteger processed = new AtomicInteger(0);
-                final AtomicInteger success = new AtomicInteger(0);
+                final int total = resources.size();
+                final int batchSize = config.getBatchSize();
+                final String workspacePath = workspace.getPath();
 
                 for (final Resource resource : resources) {
                     final String path = resource.getPath();
 
+                    // Within `withResolver` re-obtain JCR state using the provided RR
                     manager.deferredWithResolver(new Consumer<ResourceResolver>() {
                         @Override
                         public void accept(ResourceResolver r) throws Exception {
+                            log.error("------------------------------------");
                             manager.setCurrentItem(path);
 
-                            if (retryCount > 0) {
-                                try {
-                                    actions.retryAll(retryCount, retryPause, actions.startSyntheticWorkflows(model)).accept(r, path);
-                                    success.incrementAndGet();
-                                } catch (Exception e) {
-                                    log.error("Error when processing payload [ {} ] with retries.", path, e);
+                            try {
+                                actions.startSyntheticWorkflows(model).accept(r, path);
+                                final int localCompleteCount = completeCount.incrementAndGet();
+                                ModifiableValueMap mvm = r.getResource(workspacePath).adaptTo(ModifiableValueMap.class);
+                                mvm.put("completeCount", localCompleteCount);
+                                if(localCompleteCount == total) {
+                                    log.error(">>> JUST SET COMPLETE COUNT TO: {}", localCompleteCount);
                                 }
-                            } else {
-                                try {
-                                    actions.startSyntheticWorkflows(model).accept(r, path);
-                                    success.incrementAndGet();
-                                } catch (Exception e) {
-                                    log.error("Error when processing payload [ {} ].", path, e);
-                                }
+                                log.error(">>> COMPLETE COUNT: {}", localCompleteCount);
+                            } catch (Exception e) {
+                                failCount.incrementAndGet();
+                                log.error(">>> FAIL COUNT: {}", failCount.get());
+
+
                             }
 
-                            if (total == processed.incrementAndGet()) {
-                                complete(workspacePath, manager, success.get());
+
+
+                            if (runningTotal.incrementAndGet() == total) {
+                                log.error(">>> RUNNING TOTAL IS EQUAL TO TOTAL. {} == {}", runningTotal.get(), total);
+                                complete(workspace);
+                            } else {
+                                log.error(">>> RUNNING TOTAL COUNT: {}", runningTotal.get());
                             }
                         }
                     });
                 }
 
-            } catch (Exception e) {
+                workspace.commit();
+
+                manager.addCleanupTask();
+            } catch (LoginException e) {
+                log.error("Could not obtain resource resolver", e);
+            } catch (RepositoryException e) {
+                log.error("Repository exception occurred when processing FAM-based bulk workflow", e);
+            } catch (PersistenceException e) {
+                log.error("Persistence exception occurred when processing FAM-based bulk workflow", e);
+            } catch (WorkflowException e) {
                 e.printStackTrace();
             }
         }

@@ -117,8 +117,6 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
 
     @Deactivate
     protected final void deactivate(final Map<String, String> args) {
-        log.debug("Looking for any Bulk Workflow Manager pages to STOP via DEACTIVATION under: {}", BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH);
-
         ResourceResolver adminResourceResolver = null;
         try {
             adminResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
@@ -132,12 +130,8 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
             visitor.accept(root);
 
             final List<Resource> configs = visitor.getConfigs();
-            log.debug("Found [ {} ] candidate config(s) for resuming", configs.size());
-
             for (Resource config : configs) {
                 ModifiableValueMap properties = config.getChild("workspace").adaptTo(ModifiableValueMap.class);
-
-                log.debug("[ {} ~> {} ]", config.getPath(), properties.get("status"));
 
                 if (StringUtils.equals(Status.RUNNING.name(), properties.get("status", String.class))) {
                     properties.put(Workspace.PN_STATUS, Status.STOPPED.name());
