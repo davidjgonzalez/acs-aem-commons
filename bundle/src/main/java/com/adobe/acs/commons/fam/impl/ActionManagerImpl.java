@@ -279,7 +279,7 @@ class ActionManagerImpl implements ActionManager {
             tasksError.incrementAndGet();
             tasksSuccessful.decrementAndGet();
         }        
-        log.error("Persistence error prevented saving changes for: "+itemList, ex);
+        log.error("Persistence error prevented saving changes for: {}", itemList, ex);
     }
 
     private void logFilteredOutItem(String path) {

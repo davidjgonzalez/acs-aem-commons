@@ -34,11 +34,11 @@ import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowModel;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowRunner;
 import com.day.cq.workflow.WorkflowException;
+import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.api.resource.LoginException;
-import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.PersistenceException;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
@@ -145,12 +145,16 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
             workspace.setCompleteCount(success);
             for (com.adobe.acs.commons.fam.Failure f : manager.getFailureList()) {
                 workspace.addFailure(f.getNodePath(), null, f.getTime());
+                workspace.incrementFailCount();
             }
+
             super.complete(workspace);
+
             manager.addCleanupTask();
+            actionManagerFactory.purgeCompletedTasks();
+
         } catch (LoginException e) {
             log.error("Could not obtain a fresh resource resolver to complete", e);
-            e.printStackTrace();
         } finally {
             if (resourceResolver != null) {
                 resourceResolver.close();
@@ -176,7 +180,6 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
     }
 
 
-
     /*******************/
 
     private class FAMRunnable implements Runnable {
@@ -188,18 +191,24 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
 
         public void run() {
             // Query for all candidate resources
-            ResourceResolver jobResourceResolver;
+            ResourceResolver resourceResolver;
             Resource configResource;
 
             try {
-                jobResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
-                configResource = jobResourceResolver.getResource(configPath);
+                resourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
+                configResource = resourceResolver.getResource(configPath);
 
                 final Config config = configResource.adaptTo(Config.class);
                 final Workspace workspace = config.getWorkspace();
 
+                if (StringUtils.isNotBlank(workspace.getActionManagerName())
+                        && actionManagerFactory.hasActionManager(workspace.getActionManagerName())) {
+                    log.warn("Action Manager already exists for [ {} ]", workspace.getActionManagerName());
+                    return;
+                }
+
                 final List<Resource> resources;
-                resources = queryHelper.findResources(jobResourceResolver,
+                resources = queryHelper.findResources(resourceResolver,
                         config.getQueryType(),
                         config.getQueryStatement(),
                         config.getRelativePath());
@@ -209,23 +218,25 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
 
                 final ActionManager manager = actionManagerFactory.createTaskManager(
                         "Bulk Workflow Manager @ " + config.getPath(),
-                        jobResourceResolver,
+                        resourceResolver,
                         config.getInterval());
+
                 final SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(
-                        jobResourceResolver,
+                        resourceResolver,
                         config.getWorkflowModelId(),
                         true);
 
                 workspace.setTotalCount(resources.size());
+                workspace.setActionManagerName(manager.getName());
                 workspace.commit();
 
-                final AtomicInteger completeCount = new AtomicInteger(0);
-                final AtomicInteger failCount = new AtomicInteger(0);
-                final AtomicInteger runningTotal = new AtomicInteger(0);
+                final AtomicInteger processed = new AtomicInteger(0);
+                final AtomicInteger success = new AtomicInteger(0);
 
-                final int total = resources.size();
-                final int batchSize = config.getBatchSize();
                 final String workspacePath = workspace.getPath();
+                final int total = resources.size();
+                final int retryCount = config.getRetryCount();
+                final int retryPause = config.getInterval();
 
                 for (final Resource resource : resources) {
                     final String path = resource.getPath();
@@ -234,40 +245,34 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
                     manager.deferredWithResolver(new Consumer<ResourceResolver>() {
                         @Override
                         public void accept(ResourceResolver r) throws Exception {
-                            log.error("------------------------------------");
-                            manager.setCurrentItem(path);
-
                             try {
-                                actions.startSyntheticWorkflows(model).accept(r, path);
-                                final int localCompleteCount = completeCount.incrementAndGet();
-                                ModifiableValueMap mvm = r.getResource(workspacePath).adaptTo(ModifiableValueMap.class);
-                                mvm.put("completeCount", localCompleteCount);
-                                if(localCompleteCount == total) {
-                                    log.error(">>> JUST SET COMPLETE COUNT TO: {}", localCompleteCount);
+                                manager.setCurrentItem(path);
+
+                                if (retryCount > 0) {
+                                    try {
+                                        actions.retryAll(retryCount, retryPause, actions.startSyntheticWorkflows(model)).accept(r, path);
+                                        success.incrementAndGet();
+                                    } catch (Exception e) {
+                                        log.error("WTH Could not process [ {} ] with [ " + retryCount + " ] retries", path, e);
+                                        throw e;
+                                    }
+                                } else {
+                                    try {
+                                        actions.startSyntheticWorkflows(model).accept(r, path);
+                                        success.incrementAndGet();
+                                    } catch (Exception e) {
+                                        log.error("WTH Could not process [ {} ]", path, e);
+                                        throw e;
+                                    }
                                 }
-                                log.error(">>> COMPLETE COUNT: {}", localCompleteCount);
-                            } catch (Exception e) {
-                                failCount.incrementAndGet();
-                                log.error(">>> FAIL COUNT: {}", failCount.get());
-
-
-                            }
-
-
-
-                            if (runningTotal.incrementAndGet() == total) {
-                                log.error(">>> RUNNING TOTAL IS EQUAL TO TOTAL. {} == {}", runningTotal.get(), total);
-                                complete(workspace);
-                            } else {
-                                log.error(">>> RUNNING TOTAL COUNT: {}", runningTotal.get());
+                            } finally {
+                                if (processed.incrementAndGet() == total) {
+                                    complete(workspacePath, manager, success.get());
+                                }
                             }
                         }
                     });
                 }
-
-                workspace.commit();
-
-                manager.addCleanupTask();
             } catch (LoginException e) {
                 log.error("Could not obtain resource resolver", e);
             } catch (RepositoryException e) {
@@ -275,11 +280,9 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
             } catch (PersistenceException e) {
                 log.error("Persistence exception occurred when processing FAM-based bulk workflow", e);
             } catch (WorkflowException e) {
-                e.printStackTrace();
+                log.error("Workflow exception occurred when processing FAM-based bulk workflow", e);
             }
         }
 
-    };
-
-
+    }
 }

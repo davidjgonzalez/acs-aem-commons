@@ -54,6 +54,8 @@ import java.util.List;
 
 @Model(adaptables = Resource.class)
 public class Workspace {
+    public static final String NN_FAILURES = "failures";
+    public static final String NN_FAILURE = "failure";
     public static final String PN_ACTIVE_PAYLOAD_GROUPS = "activePayloadGroups";
     public static final String PN_ACTIVE_PAYLOADS = "activePayloads";
     public static final String NN_WORKSPACE = "workspace";

@@ -26,7 +26,7 @@
             <td class="coral-Table-cell">{{ data.status.failCount }}</td>
         </tr>
 
-        <tr class="coral-Table-row">
+        <tr class="coral-Table-row" ng-show="data.status.remainingCount > 0">
             <td class="coral-Table-cell">Remaining</td>
             <td class="coral-Table-cell">{{ data.status.remainingCount }}</td>
         </tr>
@@ -62,7 +62,7 @@
 
         <tr class="coral-Table-row" ng-hide="data.status.queryType === 'list'">
             <td class="coral-Table-cell">Query Statement</td>
-            <td class="coral-Table-cell">{{ data.status.queryStatement }}</td>
+            <td class="coral-Table-cell" style="white-space: pre;">{{ data.status.queryStatement }}</td>
         </tr>
 
         <tr class="coral-Table-row">
