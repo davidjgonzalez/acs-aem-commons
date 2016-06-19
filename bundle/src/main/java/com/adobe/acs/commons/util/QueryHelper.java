@@ -28,6 +28,14 @@ import java.util.List;
 
 public interface QueryHelper {
 
+    /**
+     * @param resourceResolver the resourceResolver providing access into the JCR
+     * @param language querybuilder, list, xpath, JCR-SQL, JCR-SQL2
+     * @param statement the query statement
+     * @param relPath the relative path to apply to the query result resources
+     * @return a list of Resource objects
+     * @throws RepositoryException
+     */
     List<Resource> findResources(ResourceResolver resourceResolver,
                                  String language,
                                  String statement,

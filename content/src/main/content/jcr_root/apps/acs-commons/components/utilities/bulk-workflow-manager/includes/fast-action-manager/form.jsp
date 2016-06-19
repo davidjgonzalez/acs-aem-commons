@@ -17,28 +17,42 @@
   ~ limitations under the License.
   ~ #L%
   --%>
-<div class="coral-Form-fieldwrapper">
-    <label class="coral-Form-fieldlabel">Save Interval</label>
-
-    <input name="interval"
-           type="number"
-           min="1"
-           class="coral-Form-field coral-Textfield"
-           ng-pattern="/\d+/"
-           ng-model="form.interval"
-           placeholder="in seconds [ Default: 10 ]"/>
-</div>
 
 <div class="coral-Form-fieldwrapper">
-    <label class="coral-Form-fieldlabel">Update Size</label>
+    <label class="coral-Form-fieldlabel">Batch Size</label>
 
     <input name="batchSize"
            type="number"
            min="2"
            class="coral-Form-field coral-Textfield"
-           ng-pattern="/(^[2-9]\d*)|(^[1-9]\d+)/"
            ng-model="form.batchSize"
-           placeholder="# of payloads to process at once [ Default: 10 ]"/>
+           value="100"
+           placeholder="# of payloads to process per commit [ Default: 10 ]"/>
             <span class="coral-Form-fieldinfo coral-Icon coral-Icon--infoCircle coral-Icon--sizeS" data-init="quicktip" data-quicktip-type="info" data-quicktip-arrow="right"
-                  data-quicktip-content="Update the complete count at this granularity"></span>
+                  data-quicktip-content="Batch size must be greater than 1"></span>
+</div>
+
+
+<div class="coral-Form-fieldwrapper">
+    <label class="coral-Form-fieldlabel">Retry Count</label>
+
+    <input name="retryCount"
+           type="number"
+           min="0"
+           class="coral-Form-field coral-Textfield"
+           ng-model="form.retryCount"
+           placeholder="# of time to retry processing a payload [ Default: 0 ]"/>
+            <span class="coral-Form-fieldinfo coral-Icon coral-Icon--infoCircle coral-Icon--sizeS" data-init="quicktip" data-quicktip-type="info" data-quicktip-arrow="right"
+                  data-quicktip-content="0 disabled retries"></span>
+</div>
+
+<div class="coral-Form-fieldwrapper">
+    <label class="coral-Form-fieldlabel">Retry Pause</label>
+
+    <input name="interval"
+           type="number"
+           min="0"
+           class="coral-Form-field coral-Textfield"
+           ng-model="form.interval"
+           placeholder="# of seconds between retries [ Default: 10 ]"/>
 </div>

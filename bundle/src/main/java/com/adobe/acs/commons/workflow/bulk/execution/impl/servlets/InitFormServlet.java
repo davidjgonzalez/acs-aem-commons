@@ -80,7 +80,7 @@ public class InitFormServlet extends SlingAllMethodsServlet {
 
         // Query Types
         try {
-            json.accumulate("queryTypes", new JSONObject().put("label", "QueryBuilder").put("value", "querybuilder"));
+            json.accumulate("queryTypes", new JSONObject().put("label", "QueryBuilder").put("value", "queryBuilder"));
             json.accumulate("queryTypes", new JSONObject().put("label", "xPath").put("value", "xpath"));
             json.accumulate("queryTypes", new JSONObject().put("label", "List").put("value", "list"));
             json.accumulate("queryTypes", new JSONObject().put("label", "JCR-SQL2").put("value", "JCR-SQL2"));

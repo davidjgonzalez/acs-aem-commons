@@ -67,6 +67,8 @@ public class Workspace {
     private static final String PN_COUNT_TOTAL = "totalCount";
     private static final String PN_STARTED_AT = "startedAt";
     private static final String PN_STOPPED_AT = "stoppedAt";
+    private static final String PN_MESSAGE = "message";
+    private static final String PN_ACTION_MANAGER_NAME = "actionManagerName";
 
     private Resource resource;
 
@@ -131,7 +133,15 @@ public class Workspace {
     private Calendar completedAt;
 
     @Inject
+    @Optional
+    private String message;
+
+    @Inject
     private List<Failure> failures;
+
+    @Inject
+    @Optional
+    private String actionManagerName;
 
     public Workspace(Resource resource) {
         this.resource = resource;
@@ -285,14 +295,25 @@ public class Workspace {
     }
 
     public int incrementCompleteCount() {
-        this.completeCount++;
-        properties.put(PN_COUNT_COMPLETE, this.completeCount);
-        return this.completeCount;
+        setCompleteCount(completeCount + 1);
+        return completeCount;
     }
 
-    public void incrementFailCount() {
-        this.failCount++;
-        properties.put(PN_COUNT_FAILURE, this.failCount);
+    public int setCompleteCount(int count) {
+        completeCount = count;
+        properties.put(PN_COUNT_COMPLETE, count);
+        return completeCount;
+    }
+
+    public int incrementFailCount() {
+        setFailureCount(failCount + 1);
+        return failCount;
+    }
+
+    public int setFailureCount(int count) {
+        failCount = count;
+        properties.put(PN_COUNT_FAILURE, count);
+        return failCount;
     }
 
     /**
@@ -388,10 +409,21 @@ public class Workspace {
     }
 
     public void addFailure(Payload payload) throws RepositoryException {
+        addFailure(payload.getPayloadPath(), payload.getPath(), Calendar.getInstance());
+    }
+
+    public void addFailure(String payloadPath, String trackPath, Calendar failedAt) throws RepositoryException {
         Node failure = JcrUtils.getOrCreateByPath(resource.getChild("failures").adaptTo(Node.class), "failure", true, "oak:Unstructured", "oak:Unstructured", false);
-        JcrUtil.setProperty(failure, Failure.PN_PATH, payload.getPath());
-        JcrUtil.setProperty(failure, Failure.PN_PAYLOAD_PATH, payload.getPayloadPath());
-        JcrUtil.setProperty(failure, Failure.PN_FAILED_AT, Calendar.getInstance());
+
+        JcrUtil.setProperty(failure, Failure.PN_PAYLOAD_PATH, payloadPath);
+
+        if (StringUtils.isNotBlank(trackPath)) {
+            JcrUtil.setProperty(failure, Failure.PN_PATH, trackPath);
+        }
+
+        if (failedAt != null) {
+            JcrUtil.setProperty(failure, Failure.PN_FAILED_AT, failedAt);
+        }
     }
 
     public List<Failure> getFailures() {
@@ -409,5 +441,28 @@ public class Workspace {
 
     public String getPath() {
         return resource.getPath();
+    }
+
+    public void setError(String message) {
+        setStatus(Status.STOPPED, SubStatus.ERROR);
+        setMessage(message);
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+        properties.put(PN_MESSAGE, message);
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public String getActionManagerName() {
+        return actionManagerName;
+    }
+
+    public void setActionManagerName(String name) {
+        this.actionManagerName = name;
+        properties.put(PN_ACTION_MANAGER_NAME, name);
     }
 }

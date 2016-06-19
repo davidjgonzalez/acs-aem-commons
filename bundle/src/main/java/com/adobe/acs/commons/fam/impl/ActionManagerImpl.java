@@ -48,7 +48,7 @@ import org.slf4j.LoggerFactory;
  */
 class ActionManagerImpl implements ActionManager {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ActionManagerImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ActionManagerImpl.class);
     private final AtomicInteger tasksAdded = new AtomicInteger();
     private final AtomicInteger tasksCompleted = new AtomicInteger();
     private final AtomicInteger tasksFilteredOut = new AtomicInteger();
@@ -76,7 +76,32 @@ class ActionManagerImpl implements ActionManager {
     public String getName() {
         return name;
     }
-    
+
+    @Override
+    public int getAddedCount() {
+        return tasksAdded.get();
+    }
+
+    @Override
+    public int getSuccessCount() {
+        return tasksSuccessful.get();
+    }
+
+    @Override
+    public int getErrorCount() {
+        return tasksError.get();
+    }
+
+    @Override
+    public int getCompletedCount() {
+        return tasksCompleted.get();
+    }
+
+    @Override
+    public int getRemainingCount() {
+        return getAddedCount() - (getSuccessCount() + getErrorCount());
+    }
+
     @Override
     public List<Failure> getFailureList() {
         return failures;
@@ -110,7 +135,7 @@ class ActionManagerImpl implements ActionManager {
                     QueryResult results = query.execute();
                     for (NodeIterator nodeIterator = results.getNodes(); nodeIterator.hasNext();) {
                         final String nodePath = nodeIterator.nextNode().getPath();
-                        LOG.info("Processing found result " + nodePath);
+                        log.info("Processing found result " + nodePath);
                         deferredWithResolver(new Consumer<ResourceResolver>() {
                             @Override
                             public void accept(ResourceResolver r) throws Exception {
@@ -128,7 +153,7 @@ class ActionManagerImpl implements ActionManager {
                         });
                     }
                 } catch (RepositoryException ex) {
-                    LOG.error("Repository exception processing query "+queryStatement, ex);
+                    log.error("Repository exception processing query "+queryStatement, ex);
                 }
             }
         }, false);
@@ -145,7 +170,7 @@ class ActionManagerImpl implements ActionManager {
                         t.commit();
                         t.close();
                     } catch (PersistenceException ex) {
-                        LOG.error("Persistence exception closing session pool", ex);
+                        log.error("Persistence exception closing session pool", ex);
                     }
                 }
             }, true);
@@ -166,7 +191,7 @@ class ActionManagerImpl implements ActionManager {
                 try {
                     withResolver(action, closesResolver);
                     if (!closesResolver) {
-                        logCompletetion();
+                        logCompletion();
                     }
                 } catch (Exception ex) {
                     if (!closesResolver) {
@@ -222,7 +247,8 @@ class ActionManagerImpl implements ActionManager {
         }
     }
 
-    private void logCompletetion() {
+    private void logCompletion() {
+        log.error(">>> LOG COMPLETION");
         tasksCompleted.incrementAndGet();
         tasksSuccessful.incrementAndGet();
         if (isComplete()) {
@@ -231,7 +257,7 @@ class ActionManagerImpl implements ActionManager {
     }
 
     private void logError(Exception ex) {
-        LOG.error("Caught exception in task: "+ex.getMessage(), ex);
+        log.error("Caught exception in task: {}", ex.getMessage(), ex);
         Failure fail = new Failure();
         fail.setNodePath(currentPath.get());
         fail.setException(ex);
@@ -254,12 +280,12 @@ class ActionManagerImpl implements ActionManager {
             tasksError.incrementAndGet();
             tasksSuccessful.decrementAndGet();
         }        
-        LOG.error("Persistence error prevented saving changes for: "+itemList, ex);
+        log.error("Persistence error prevented saving changes for: "+itemList, ex);
     }
 
     private void logFilteredOutItem(String path) {
         tasksFilteredOut.incrementAndGet();
-        LOG.info("Filtered out " + path);
+        log.info("Filtered out " + path);
     }
 
     private long getRuntime() {
@@ -350,7 +376,7 @@ class ActionManagerImpl implements ActionManager {
                     new OpenType[]{SimpleType.STRING, SimpleType.INTEGER, SimpleType.STRING, SimpleType.STRING});
             failureTabularType = new TabularType("Errors", "Collected failures", failureCompositeType, new String[]{"_taskName", "_count"});
         } catch (OpenDataException ex) {
-            LOG.error("Unable to build MBean composite types", ex);
+            log.error("Unable to build MBean composite types", ex);
         }
     }
 }

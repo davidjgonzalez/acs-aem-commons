@@ -49,7 +49,6 @@ public class QueryHelperImpl implements QueryHelper {
     @Reference
     private QueryBuilder queryBuilder;
 
-
     private static final String QUERY_BUILDER = "queryBuilder";
 
     private static final String LIST = "list";
@@ -71,8 +70,8 @@ public class QueryHelperImpl implements QueryHelper {
 
         final List<Resource> resources = new ArrayList<Resource>();
 
-        if (language.equals(QUERY_BUILDER)) {
-            final String[] lines = StringUtils.split(statement, System.lineSeparator());
+        if (QUERY_BUILDER.equalsIgnoreCase(language)) {
+            final String[] lines = statement.split("[,;\\s\\n\\t]+");
             final Map<String, String> params = ParameterUtil.toMap(lines, "=", false, null, true);
 
             // ensure all results are returned
@@ -83,7 +82,7 @@ public class QueryHelperImpl implements QueryHelper {
             for (final Hit hit : hits) {
                 resources.add(hit.getResource());
             }
-        } else if (language.equals(LIST)) {
+        } else if (LIST.equalsIgnoreCase(statement)) {
             if (StringUtils.isNotBlank(statement)) {
                 final String[] lines = statement.split("[,;\\s\\n\\t]+");
 
@@ -100,10 +99,8 @@ public class QueryHelperImpl implements QueryHelper {
             }
         } else {
             QueryManager queryManager = resourceResolver.adaptTo(Session.class).getWorkspace().getQueryManager();
-            Query query = queryManager.createQuery(statement, language);
-            QueryResult result = query.execute();
+            NodeIterator nodeIter = queryManager.createQuery(statement, language).execute().getNodes();
 
-            NodeIterator nodeIter = result.getNodes();
             while (nodeIter.hasNext()) {
                 Resource resource = resourceResolver.getResource(nodeIter.nextNode().getPath());
                 if (resource != null) {

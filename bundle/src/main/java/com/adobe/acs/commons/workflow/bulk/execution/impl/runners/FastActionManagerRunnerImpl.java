@@ -24,9 +24,12 @@ import com.adobe.acs.commons.fam.ActionManager;
 import com.adobe.acs.commons.fam.ActionManagerFactory;
 import com.adobe.acs.commons.fam.DeferredActions;
 import com.adobe.acs.commons.fam.ThrottledTaskRunner;
+import com.adobe.acs.commons.functions.BiConsumer;
 import com.adobe.acs.commons.functions.Consumer;
+import com.adobe.acs.commons.quickly.results.Action;
 import com.adobe.acs.commons.util.QueryHelper;
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowRunner;
+import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.SubStatus;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Failure;
@@ -35,6 +38,8 @@ import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowModel;
 import com.adobe.acs.commons.workflow.synthetic.SyntheticWorkflowRunner;
 import com.day.cq.commons.jcr.JcrUtil;
+import com.day.cq.replication.ReplicationActionType;
+import com.day.cq.replication.ReplicationException;
 import com.day.cq.workflow.WorkflowException;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
@@ -53,6 +58,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.jcr.Node;
 import javax.jcr.RepositoryException;
+import javax.jcr.Session;
 import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -80,130 +86,102 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
     @Reference
     private DeferredActions actions;
 
-    @Reference
-    private Scheduler scheduler;
-
     @Override
-    public Runnable run(final Config jobConfig) {
-        final Runnable job = new Runnable() {
-            private String configPath = jobConfig.getPath();
-
-            public void run() {
-                // Query for all candidate resources
-                ResourceResolver jobResourceResolver;
-                Resource configResource;
-
-                try {
-                    jobResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
-                    configResource = jobResourceResolver.getResource(configPath);
-
-                    final Config config = configResource.adaptTo(Config.class);
-                    final Workspace workspace = config.getWorkspace();
-
-                    final List<Resource> resources;
-                    resources = queryHelper.findResources(jobResourceResolver,
-                            config.getQueryType(),
-                            config.getQueryStatement(),
-                            config.getRelativePath());
-
-                    // Reset FAM tracking
-                    actionManagerFactory.purgeCompletedTasks();
-
-                    final ActionManager manager = actionManagerFactory.createTaskManager(
-                            "Bulk Workflow Manager @ " + config.getPath(),
-                            jobResourceResolver,
-                            config.getInterval());
-                    final SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(
-                            jobResourceResolver,
-                            config.getWorkflowModelId(),
-                            true);
-
-                    workspace.setTotalCount(resources.size());
-                    workspace.commit();
-
-                    final AtomicInteger completeCount = new AtomicInteger(0);
-                    final AtomicInteger failCount = new AtomicInteger(0);
-                    final AtomicInteger runningTotal = new AtomicInteger(0);
-
-                    final int total = resources.size();
-                    final int batchSize = config.getBatchSize();
-                    final String workspacePath = workspace.getPath();
-
-                    for (final Resource resource : resources) {
-                        final String path = resource.getPath();
-
-                        // Within `withResolver` re-obtain JCR state using the provided RR
-                        manager.deferredWithResolver(new Consumer<ResourceResolver>() {
-                            @Override
-                            public void accept(ResourceResolver r) throws Exception {
-                                log.error("------------------------------------");
-                                manager.setCurrentItem(path);
-
-                                try {
-                                    actions.startSyntheticWorkflows(model).accept(r, path);
-                                    final int localCompleteCount = completeCount.incrementAndGet();
-                                    ModifiableValueMap mvm = r.getResource(workspacePath).adaptTo(ModifiableValueMap.class);
-                                    mvm.put("completeCount", localCompleteCount);
-                                    if(localCompleteCount == total) {
-                                        log.error(">>> JUST SET COMPLETE COUNT TO: {}", localCompleteCount);
-                                    }
-                                    log.error(">>> COMPLETE COUNT: {}", localCompleteCount);
-                                } catch (Exception e) {
-                                    failCount.incrementAndGet();
-                                    log.error(">>> FAIL COUNT: {}", failCount.get());
-
-                                    try {
-                                        fail(r.getResource(workspacePath).adaptTo(Workspace.class), path);
-                                    } catch (Exception e1) {
-                                        log.error(">>>  COULD NOT FAIL PAYLOAD", e1);
-                                        log.error(">>> Could not record failure of payload [ {} ]", path, e1);
-                                    }
-                                }
-
-
-                                if (runningTotal.incrementAndGet() == total) {
-                                    log.error(">>> RUNNING TOTAL IS EQUAL TO TOTAL. {} == {}", runningTotal.get(), total);
-                                    complete(workspace);
-                                } else {
-                                    log.error(">>> RUNNING TOTAL COUNT: {}", runningTotal.get());
-                                }
-                            }
-                        });
-                    }
-
-                    workspace.commit();
-
-                    manager.addCleanupTask();
-                } catch (LoginException e) {
-                    log.error("Could not obtain resource resolver", e);
-                } catch (WorkflowException e) {
-                    log.error("Could not find a Synthetic Workflow Model", e);
-                } catch (RepositoryException e) {
-                    log.error("Repository exception occurred when processing FAM-based bulk workflow", e);
-                } catch (PersistenceException e) {
-                    log.error("Persistence exception occurred when processing FAM-based bulk workflow", e);
-                }
-            }
-        };
-
-        return job;
+    public Runnable run(Config config) {
+        log.info("Bulk Workflow Manager with Fast Action Manager queues up work and begins execution in initialize()");
+        return null;
     }
 
     @Override
     public ScheduleOptions getOptions(Config config) {
-        ScheduleOptions options = scheduler.NOW();
-        options.canRunConcurrently(false);
-        options.onLeaderOnly(true);
-        options.name(config.getWorkspace().getJobName());
-
-        return options;
+        return null;
     }
 
     @Override
     public void initialize(QueryHelper queryHelper, Config config) throws PersistenceException, RepositoryException {
-        Workspace workspace = config.getWorkspace();
-        initialize(workspace, 0);
-        workspace.commit();
+        try {
+            final Workspace workspace = config.getWorkspace();
+            final ResourceResolver resourceResolver = config.getResourceResolver();
+            final String actionManagerName = "Bulk Workflow Manager @ " + config.getPath();
+
+            if (actionManagerFactory.hasActionManager(actionManagerName)) {
+                workspace.setError("An Action Manager already exists with the name: " + actionManagerName);
+                return;
+            }
+
+            final List<Resource> resources = queryHelper.findResources(resourceResolver,
+                    config.getQueryType(),
+                    config.getQueryStatement(),
+                    config.getRelativePath());
+
+            // Reset FAM tracking
+            actionManagerFactory.purgeCompletedTasks();
+
+            final ActionManager manager = actionManagerFactory.createTaskManager(
+                    "Bulk Workflow Manager @ " + config.getPath(),
+                    resourceResolver,
+                    config.getBatchSize());
+
+            final SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(
+                    resourceResolver,
+                    config.getWorkflowModelId(),
+                    true);
+
+            workspace.setActionManagerName(manager.getName());
+            workspace.setTotalCount(resources.size());
+            workspace.commit();
+
+            final String workspacePath = workspace.getPath();
+            final int total = resources.size();
+            final int retryCount = config.getRetryCount();
+            final int retryPause = config.getInterval();
+
+            final AtomicInteger processed = new AtomicInteger(0);
+            final AtomicInteger success = new AtomicInteger(0);
+
+            for (final Resource resource : resources) {
+                final String path = resource.getPath();
+
+                // Within `withResolver` re-obtain JCR state using the provided RR
+                manager.deferredWithResolver(new Consumer<ResourceResolver>() {
+                    @Override
+                    public void accept(ResourceResolver r) throws Exception {
+                        manager.setCurrentItem(path);
+
+                        if (retryCount > 0) {
+                            try {
+                                actions.retryAll(retryCount, retryPause, actions.startSyntheticWorkflows(model)).accept(r, path);
+                                success.incrementAndGet();
+                            } catch (Exception e) {
+                                log.error("Error when processing payload [ {} ] with retries.", path, e);
+                            }
+                        } else {
+                            try {
+                                log.error(">>>ACIONS:  {}", actions);
+                                actions.startSyntheticWorkflows(model).accept(r, path);
+                                success.incrementAndGet();
+                            } catch (Exception e) {
+                                log.error("Error when processing payload [ {} ].", path, e);
+                            }
+                        }
+
+                        if (total == processed.incrementAndGet()) {
+                            log.error(">>> COMPLETED!");
+                            complete(workspacePath, manager, success.get());
+                        }
+                    }
+                });
+            }
+
+        } catch (LoginException e) {
+            log.error("Could not obtain resource resolver", e);
+        } catch (WorkflowException e) {
+            log.error("Could not find a Synthetic Workflow Model", e);
+        } catch (RepositoryException e) {
+            log.error("Repository exception occurred when processing FAM-based bulk workflow", e);
+        } catch (PersistenceException e) {
+            log.error("Persistence exception occurred when processing FAM-based bulk workflow", e);
+        }
     }
 
     @Override
@@ -237,27 +215,27 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
         super.stopWithError(workspace);
     }
 
-    @Override
-    public void complete(Workspace workspace) throws PersistenceException {
-        super.complete(workspace);
-    }
+    public void complete(String workspacePath, ActionManager manager, final int success) throws PersistenceException, RepositoryException {
+        ResourceResolver resourceResolver = null;
 
-    /**
-     * Synchronized since multiple threads could be logging.
-     *
-     * @param workspace The workspace
-     * @param path The path of the payload
-     * @throws Exception
-     */
-    public synchronized void fail(Workspace workspace, String path) throws Exception {
-        // Track the failure details
-        workspace.incrementFailCount();
+        try {
+            resourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
+            Workspace workspace = resourceResolver.getResource(workspacePath).adaptTo(Workspace.class);
 
-        Node failure = JcrUtils.getOrCreateByPath(workspace.getResourceResolver().getResource(workspace.getPath()).getChild("failures").adaptTo(Node.class), "failure", true, "oak:Unstructured", "oak:Unstructured", false);
-        JcrUtil.setProperty(failure, Failure.PN_PAYLOAD_PATH, path);
-        JcrUtil.setProperty(failure, Failure.PN_FAILED_AT, Calendar.getInstance());
-
-        workspace.commit();
+            workspace.setCompleteCount(success);
+            for (com.adobe.acs.commons.fam.Failure f : manager.getFailureList()) {
+                workspace.addFailure(f.getNodePath(), null, f.getTime());
+            }
+            super.complete(workspace);
+            manager.addCleanupTask();
+        } catch (LoginException e) {
+            log.error("Could not obtain a fresh resource resolver to complete", e);
+            e.printStackTrace();
+        } finally {
+            if (resourceResolver != null) {
+                resourceResolver.close();
+            }
+        }
     }
 
     @Override
@@ -276,4 +254,6 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
     public void forceTerminate(Workspace workspace, Payload payload) throws Exception {
         throw new UnsupportedOperationException("FAM jobs cannot be force terminated");
     }
+
+
 }

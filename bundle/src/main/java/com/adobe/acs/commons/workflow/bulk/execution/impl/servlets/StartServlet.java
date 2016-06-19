@@ -74,6 +74,7 @@ public class StartServlet extends SlingAllMethodsServlet {
             properties.put("interval", params.optInt("interval", 10));
             properties.put("timeout", params.optInt("timeout", 30));
             properties.put("throttle", params.optInt("throttle", 10));
+            properties.put("retryCount", params.optInt("retryCount", 0));
             properties.put("purgeWorkflow", params.optBoolean("purgeWorkflow", false));
 
             request.getResourceResolver().commit();

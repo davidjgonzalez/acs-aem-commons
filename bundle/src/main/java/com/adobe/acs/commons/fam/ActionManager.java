@@ -113,4 +113,30 @@ public interface ActionManager {
      * @return The name set on this action manager at the time of its creation
      */
     String getName();
+
+    /**
+     * @return The number of items of work added for processing.
+     */
+    int getAddedCount();
+
+    /**
+     * @return The number of items of work that were successfully processed.
+     */
+    int getSuccessCount();
+
+    /**
+     * @return The number of items of work that were unsuccessfully processed.
+     */
+    int getErrorCount();
+
+    /**
+     * @return The number of items of work that were processed.
+
+     */
+    int getCompletedCount();
+
+    /**
+     * @return The number of items of work that have been added but have not yet been processed.
+     */
+    int getRemainingCount();
 }

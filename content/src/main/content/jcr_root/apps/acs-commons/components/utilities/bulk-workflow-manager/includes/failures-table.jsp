@@ -18,7 +18,7 @@
   ~ #L%
   --%>
 <%-- Failure Summary --%>
-<h2>Failures</h2>
+<h2 style="clear: both;">Failures</h2>
 
 <table class="coral-Table">
     <thead>

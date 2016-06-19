@@ -47,15 +47,15 @@
     To execute another bulk workflow execution, create a new Bulk Workflow Manager page.
 </div>
 
-<div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl'">
+<div ng-show="isWorkflow()">
     <%@include file="aem-workflow/status.jsp"%>
 </div>
 
-<div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl'">
+<div ng-show="isSynthetic()">
     <%@include file="synthetic-workflow/status.jsp"%>
 </div>
 
-<div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.FastActionManagerRunnerImpl">
+<div ng-show="isFAM()">
     <%@include file="fast-action-manager/status.jsp"%>
 </div>
 
@@ -95,18 +95,14 @@
     <div   style="margin-left: 12.5rem; line-height: 2.5rem"
            ng-show="data.status.status === 'STOPPED'">
 
-
-        <div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl'">
+        <div ng-show="isWorkflow()">
             <%@include file="aem-workflow/interval-update.jsp"%>
         </div>
 
-        <div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl'">
-            <%@include file="synthetic-workflow/throttle-update.jsp"%>
-        </div>
     </div>
 </div>
 
-<%-- Status Table --%>
+<%-- Running Payloads Table --%>
 <section  ng-show="data.status.status === 'RUNNING'">
     <hr/>
 
@@ -125,17 +121,20 @@
     </div>
 
 
-    <div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl'">
+    <div ng-show="isWorkflow()">
         <%@include file="aem-workflow/status-table.jsp"%>
     </div>
 
-    <div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl'">
+    <div ng-show="isSynthetic()">
         <%@include file="synthetic-workflow/status-table.jsp"%>
     </div>
 
-    <div ng-show="data.status.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.FastActionManagerRunnerImpl">
+    <div ng-show="isFAM()">
         <%@include file="fast-action-manager/status-table.jsp"%>
     </div>
+</section>
 
+<!-- Failure Table -->
+<section>
     <%@include file="failures-table.jsp"%>
 </section>

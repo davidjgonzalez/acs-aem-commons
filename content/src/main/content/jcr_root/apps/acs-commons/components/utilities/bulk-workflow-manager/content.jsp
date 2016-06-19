@@ -25,10 +25,10 @@
          ng-controller="MainCtrl"
          ng-init="app.uri = '${resourcePath}'; init();">
 
-    <div ng-show="data.status.status === 'NOT_STARTED'">
+    <div ng-show="showForm()">
         <%@include file="includes/form.jsp" %>
     </div>
-    <div ng-hide="data.status.status === 'NOT_STARTED'">
+    <div ng-hide="showForm()">
         <%@include file="includes/status.jsp" %>
     </div>
  </div>

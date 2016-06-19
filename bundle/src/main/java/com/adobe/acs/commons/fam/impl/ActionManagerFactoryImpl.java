@@ -63,7 +63,21 @@ public class ActionManagerFactoryImpl extends AnnotatedStandardMBean implements 
         tasks.put(tryName, manager);
         return manager;
     }
-    
+
+    @Override
+    public ActionManager getActionManager(String name) {
+        if (name == null) {
+            return null;
+        }
+
+        return this.tasks.get(name);
+    }
+
+    @Override
+    public boolean hasActionManager(String name) {
+        return this.tasks.get(name) != null;
+    }
+
     @Override
     public TabularDataSupport getStatistics() throws OpenDataException {
         TabularDataSupport stats = new TabularDataSupport(ActionManagerImpl.getStaticsTableType());

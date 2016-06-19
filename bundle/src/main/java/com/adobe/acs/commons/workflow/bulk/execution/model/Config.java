@@ -81,6 +81,10 @@ public class Config {
     @Optional
     private String workflowModel;
 
+    @Inject
+    @Default(intValues = 10)
+    private int retryCount;
+
     public Config(Resource resource) {
         this.resource = resource;
         this.properties = resource.adaptTo(ModifiableValueMap.class);
@@ -155,6 +159,8 @@ public class Config {
     public Resource getResource() {
         return resource;
     }
+
+    public int getRetryCount() { return retryCount; }
 
     public Workspace getWorkspace() {
         // Collecting workspace on get to avoid cyclic recursion between models

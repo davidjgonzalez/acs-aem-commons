@@ -146,7 +146,9 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
 
     public void start(Workspace workspace) throws PersistenceException {
         workspace.setStatus(Status.RUNNING);
-        workspace.setStartedAt(Calendar.getInstance());
+        if (workspace.getStartedAt() == null) {
+            workspace.setStartedAt(Calendar.getInstance());
+        }
         workspace.commit();
     }
 

@@ -109,6 +109,25 @@
             <td class="coral-Table-cell">{{ data.status.startedAt }}</td>
         </tr>
 
+
+        <tr class="coral-Table-row"
+            ng-show="data.status.completedAt">
+            <td class="coral-Table-cell">Completed At</td>
+            <td class="coral-Table-cell">{{ data.status.completedAt }}</td>
+        </tr>
+
+
+        <tr class="coral-Table-row"
+            ng-show="data.status.timeTakenInMillis">
+            <td class="coral-Table-cell">Time Taken</td>
+            <td class="coral-Table-cell">{{ timeTaken() }}</td>
+        </tr>
+
+        <tr class="coral-Table-row"
+            ng-show="data.status.timeTakenInMillis && !data.status.completedAt">
+            <td class="coral-Table-cell">Projected Time Remaining</td>
+            <td class="coral-Table-cell">{{ projectedTimeRemaining() }}</td>
+        </tr>
         </tbody>
     </table>
 </div>

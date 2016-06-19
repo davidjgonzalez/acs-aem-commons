@@ -27,21 +27,9 @@
            class="coral-Form-field coral-Textfield"
            ng-pattern="/(^[2-9]\d*)|(^[1-9]\d+)/"
            ng-model="form.batchSize"
-           placeholder="# of payloads to process at once [ Default: 10 ]"/>
+           value="100"
+           placeholder="# of payloads to process per commit [ Default: 10 ]"/>
             <span class="coral-Form-fieldinfo coral-Icon coral-Icon--infoCircle coral-Icon--sizeS" data-init="quicktip" data-quicktip-type="info" data-quicktip-arrow="right"
                   data-quicktip-content="Batch size must be greater than 1"></span>
 </div>
 
-<div class="coral-Form-fieldwrapper">
-    <label class="coral-Form-fieldlabel">Batch Throttle (in seconds)</label>
-
-    <input name="throttle"
-           type="number"
-           min="0"
-           class="coral-Form-field coral-Textfield"
-           ng-pattern="/\d+/"
-           ng-model="form.throttle"
-           placeholder="in seconds [ Default: 10 ]"/>
-            <span class="coral-Form-fieldinfo coral-Icon coral-Icon--infoCircle coral-Icon--sizeS" data-init="quicktip" data-quicktip-type="info" data-quicktip-arrow="right"
-                  data-quicktip-content="Number of seconds to wait before processing the next batch. 0 to disable."></span>
-</div>

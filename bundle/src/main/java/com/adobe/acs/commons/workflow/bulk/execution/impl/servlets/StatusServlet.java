@@ -20,8 +20,11 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.impl.servlets;
 
+import com.adobe.acs.commons.fam.ActionManager;
+import com.adobe.acs.commons.fam.ActionManagerFactory;
 import com.adobe.acs.commons.fam.impl.ThrottledTaskRunnerStats;
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowEngine;
+import com.adobe.acs.commons.workflow.bulk.execution.impl.Status;
 import com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Config;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Failure;
@@ -44,6 +47,7 @@ import javax.servlet.ServletException;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 
 /**
  * ACS AEM Commons - Bulk Workflow Manager - Status Servlet
@@ -62,6 +66,9 @@ public class StatusServlet extends SlingAllMethodsServlet {
 
     @Reference
     private ThrottledTaskRunnerStats ttrs;
+
+    @Reference
+    private ActionManagerFactory actionManagerFactory;
 
     @Override
     protected final void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)
@@ -95,36 +102,47 @@ public class StatusServlet extends SlingAllMethodsServlet {
             json.put("interval", config.getInterval());
             json.put("timeout", config.getTimeout());
             json.put("throttle", config.getThrottle());
+            json.put("message", workspace.getMessage());
 
-            // Counts
-            int remainingCount = workspace.getTotalCount() - (workspace.getCompleteCount() + workspace.getFailCount());
-            json.put("totalCount", workspace.getTotalCount());
-            json.put("completeCount", workspace.getCompleteCount());
-            json.put("remainingCount", remainingCount);
-            json.put("failCount", workspace.getFailCount());
-            json.put("percentComplete", Math.round(((workspace.getTotalCount() - remainingCount) / (workspace.getTotalCount() * 1F)) * DECIMAL_TO_PERCENT));
+            ActionManager actionManager = actionManagerFactory.getActionManager(workspace.getActionManagerName());
+            if (actionManager != null
+                    && !Status.COMPLETED.equals(workspace.getStatus())) {
+                // If Complete, then look to JCR for final accounts as ActionManager may be gone
+                addActionManagerTrackedCounts(workspace.getActionManagerName(), json);
+                for(com.adobe.acs.commons.fam.Failure failure : actionManager.getFailureList()) {
+                    JSONObject failureJSON = new JSONObject();
+                    json.put(Failure.PN_PATH, failure.getNodePath());
+                    json.put(Failure.PN_FAILED_AT, sdf.format(failure.getTime().getTime()));
+                    json.accumulate("failures", failureJSON);
+                }
+            } else {
+                addWorkspaceTrackedCounts(workspace, json);
+                // Failures
+                for (Failure failure : workspace.getFailures()) {
+                    json.accumulate("failures", failure.toJSON());
+                }
+            }
+
             // Times
             if (workspace.getStartedAt() != null) {
                 json.put("startedAt", sdf.format(workspace.getStartedAt().getTime()));
+                json.put("timeTakenInMillis", (Calendar.getInstance().getTime().getTime() - workspace.getStartedAt().getTime().getTime()));
             }
 
             if (workspace.getStoppedAt() != null) {
                 json.put("stoppedAt", sdf.format(workspace.getStoppedAt().getTime()));
+                json.put("timeTakenInMillis", (workspace.getStoppedAt().getTime().getTime() - workspace.getStartedAt().getTime().getTime()));
             }
 
             if (workspace.getCompletedAt() != null) {
                 json.put("completedAt", sdf.format(workspace.getCompletedAt().getTime()));
+                json.put("timeTakenInMillis", (workspace.getCompletedAt().getTime().getTime() - workspace.getStartedAt().getTime().getTime()));
             }
 
             if (AEMWorkflowRunnerImpl.class.getName().equals(config.getRunnerType())) {
                 for (Payload payload : config.getWorkspace().getActivePayloads()) {
                     json.accumulate("activePayloads", payload.toJSON());
                 }
-            }
-
-            // Failures
-            for (Failure failure : workspace.getFailures()) {
-                json.accumulate("failures", failure.toJSON());
             }
 
             json.put("systemStats", getSystemStats());
@@ -137,6 +155,31 @@ public class StatusServlet extends SlingAllMethodsServlet {
             JSONErrorUtil.sendJSONError(response, SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "Could not collect Bulk Workflow status.", e.getMessage());
         }
+    }
+
+    private void addActionManagerTrackedCounts(String name, JSONObject json) throws JSONException {
+        final ActionManager actionManager = actionManagerFactory.getActionManager(name);
+
+        int failureCount = actionManager.getErrorCount();
+        int completeCount = actionManager.getSuccessCount();
+        int totalCount = actionManager.getAddedCount();
+        int remainingCount = actionManager.getRemainingCount();
+
+        json.put("totalCount", totalCount);
+        json.put("completeCount", completeCount);
+        json.put("remainingCount", remainingCount);
+        json.put("failCount", failureCount);
+        json.put("percentComplete", Math.round(((totalCount - remainingCount) / (totalCount * 1F)) * DECIMAL_TO_PERCENT));
+    }
+
+    private void addWorkspaceTrackedCounts(Workspace workspace, JSONObject json) throws JSONException {
+        // Counts
+        int remainingCount = workspace.getTotalCount() - (workspace.getCompleteCount() + workspace.getFailCount());
+        json.put("totalCount", workspace.getTotalCount());
+        json.put("completeCount", workspace.getCompleteCount());
+        json.put("remainingCount", remainingCount);
+        json.put("failCount", workspace.getFailCount());
+        json.put("percentComplete", Math.round(((workspace.getTotalCount() - remainingCount) / (workspace.getTotalCount() * 1F)) * DECIMAL_TO_PERCENT));
     }
 
     private JSONObject getSystemStats() throws JSONException {

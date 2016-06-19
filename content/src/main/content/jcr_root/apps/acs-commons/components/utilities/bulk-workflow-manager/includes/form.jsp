@@ -35,6 +35,7 @@
                     name="runnerType"
                     ng-required="true"
                     ng-model="form.runnerType"
+                    ng-init="form.runnerType = 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl'"
                     ng-options="runnerType.value as runnerType.label for runnerType in formOptions.runnerTypes">
             </select>
         </div>
@@ -47,6 +48,7 @@
                     name="queryTpe"
                     ng-required="true"
                     ng-model="form.queryType"
+                    ng-init="form.queryType = 'queryBuilder'"
                     ng-options="queryType.value as queryType.label for queryType in formOptions.queryTypes">
             </select>
         </div>
@@ -88,15 +90,15 @@
             </select>
         </div>
 
-        <div ng-show="form.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.AEMWorkflowRunnerImpl'">
+        <div ng-show="isWorkflow()">
             <%@include file="aem-workflow/form.jsp"%>
         </div>
 
-        <div ng-show="form.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.SyntheticWorkflowRunnerImpl'">
+        <div ng-show="isSynthetic()">
             <%@include file="synthetic-workflow/form.jsp"%>
         </div>
 
-        <div ng-show="form.runnerType === 'com.adobe.acs.commons.workflow.bulk.execution.impl.runners.FastActionManagerRunnerImpl">
+        <div ng-show="isFAM()">
             <%@include file="fast-action-manager/form.jsp"%>
         </div>
 
@@ -116,7 +118,6 @@
                     class="coral-Button coral-Button--primary"
                     ng-show="params.$invalid || params.$pristine"
                     disabled>Start Bulk Workflow</button>
-
         </div>
     </section>
 </form>

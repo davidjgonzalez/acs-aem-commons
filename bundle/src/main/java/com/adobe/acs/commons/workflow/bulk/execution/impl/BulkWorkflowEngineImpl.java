@@ -78,9 +78,11 @@ public class BulkWorkflowEngineImpl implements BulkWorkflowEngine {
 
         workspace.getRunner().start(workspace);
         Runnable job = workspace.getRunner().run(config);
-        ScheduleOptions options = workspace.getRunner().getOptions(config);
+        if (job != null) {
+            ScheduleOptions options = workspace.getRunner().getOptions(config);
+            scheduler.schedule(job, options);
+        }
 
-        scheduler.schedule(job, options);
         workspace.commit();
     }
 
