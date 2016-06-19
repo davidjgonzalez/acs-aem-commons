@@ -248,7 +248,6 @@ class ActionManagerImpl implements ActionManager {
     }
 
     private void logCompletion() {
-        log.error(">>> LOG COMPLETION");
         tasksCompleted.incrementAndGet();
         tasksSuccessful.incrementAndGet();
         if (isComplete()) {
@@ -285,7 +284,7 @@ class ActionManagerImpl implements ActionManager {
 
     private void logFilteredOutItem(String path) {
         tasksFilteredOut.incrementAndGet();
-        log.info("Filtered out " + path);
+        log.info("Filtered out {}", path);
     }
 
     private long getRuntime() {
