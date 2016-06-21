@@ -115,15 +115,15 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
         }
 
         public void run() {
-            ResourceResolver jobResourceResolver = null;
-            Resource configResource = null;
+            ResourceResolver resourceResolver = null;
+            Resource configResource;
             long start = System.currentTimeMillis();
             int total = 0;
             boolean stopped = false;
 
             try {
-                jobResourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
-                configResource = jobResourceResolver.getResource(configPath);
+                resourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
+                configResource = resourceResolver.getResource(configPath);
 
                 final Config config = configResource.adaptTo(Config.class);
                 final Workspace workspace = config.getWorkspace();
@@ -133,8 +133,8 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                 }
 
                 try {
-                    SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(jobResourceResolver, config.getWorkflowModelId(), true);
-                    jobResourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("changedByWorkflowProcess");
+                    SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(resourceResolver, config.getWorkflowModelId(), true);
+                    resourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("changedByWorkflowProcess");
 
                     PayloadGroup payloadGroup = null;
                     if (workspace.getActivePayloadGroups().size() > 0) {
@@ -159,7 +159,6 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                         }
 
                         for (Payload payload : payloads) {
-
                             if (workspace.isStopping() || workspace.isStopped()) {
                                 stop(workspace);
                                 stopped = true;
@@ -171,7 +170,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                                 throttledTaskRunner.waitForLowCpuAndLowMemory();
 
                                 long processStart = System.currentTimeMillis();
-                                swr.execute(jobResourceResolver, payload.getPayloadPath(), model, false, false);
+                                swr.execute(resourceResolver, payload.getPayloadPath(), model, false, false);
                                 complete(workspace, payload);
                                 log.info("Processed [ {} ] in {} ms", payload.getPayloadPath(), System.currentTimeMillis() - processStart);
                             } catch (WorkflowException e) {
@@ -206,8 +205,8 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
             } catch (LoginException e) {
                 log.error("Error processing Bulk Synthetic Workflow execution.", e);
             } finally {
-                if (jobResourceResolver != null) {
-                    jobResourceResolver.close();
+                if (resourceResolver != null) {
+                    resourceResolver.close();
                 }
             }
         }

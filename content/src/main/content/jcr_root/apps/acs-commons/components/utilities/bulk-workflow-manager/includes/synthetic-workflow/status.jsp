@@ -91,11 +91,6 @@
         </tr>
 
         <tr class="coral-Table-row">
-            <td class="coral-Table-cell">Batch Throttle</td>
-            <td class="coral-Table-cell">{{ data.status.throttle }} seconds</td>
-        </tr>
-
-        <tr class="coral-Table-row">
             <td class="coral-Table-cell">Workflow Model</td>
             <td class="coral-Table-cell">{{ data.status.workflowModel }}</td>
         </tr>

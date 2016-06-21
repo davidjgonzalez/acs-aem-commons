@@ -119,6 +119,13 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
             }
         } // while
 
+        if (firstPayloadGroup) {
+            // if batch size is larger than results...
+            JcrUtil.setProperty(workspace, Workspace.PN_ACTIVE_PAYLOADS, activePayloads.toArray(new String[activePayloads.size()]));
+            resourceResolver.commit();
+        }
+
+
         if (total > 0) {
             config.getWorkspace().getRunner().initialize(config.getWorkspace(), total);
             config.commit();
