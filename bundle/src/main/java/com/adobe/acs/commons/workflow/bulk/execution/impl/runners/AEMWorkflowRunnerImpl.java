@@ -198,7 +198,7 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
         return null;
     }
 
-    public PayloadGroup onboardNextPayloadGroup(Workspace workspace, PayloadGroup payloadGroup) {
+    private PayloadGroup onboardNextPayloadGroup(Workspace workspace, PayloadGroup payloadGroup) {
         // Assumes a next group should be onboarded
         // This method is not responsible for removing items from the activePayloadGroups
         if (payloadGroup == null) {
@@ -221,6 +221,12 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
             workspace.addActivePayloadGroup(payloadGroup);
             return candidatePayloadGroup;
         }
+    }
+
+
+    private boolean isTransient(ResourceResolver resourceResolver, String workflowModelId) {
+        Resource resource = resourceResolver.getResource(workflowModelId).getParent();
+        return resource.getValueMap().get("transient", false);
     }
 
 
@@ -274,11 +280,14 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                             workflow = payload.getWorkflow();
 
                             // First check if workflow is complete (aka not active)
-                            if (workflow == null) {
+                            if (workflow == null && !isTransient(adminResourceResolver, config.getWorkflowModelId())) {
                                 // Something bad happened; Workflow is missing.
                                 // This could be a result of a purge.
                                 // Dont know what the status is so mark as Force Terminated
                                 forceTerminate(workspace, payload);
+                            } if (workflow == null && isTransient(adminResourceResolver, config.getWorkflowModelId())) {
+                                // Transient WF.. very possible this WF instance has gone away
+                                complete(workspace, payload);
                             } else if (!workflow.isActive()) {
                                 // Workflow has ended, so mark payload as complete
                                 payload.updateWith(workflow);
@@ -316,7 +325,7 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                             workflowService.getWorkflowSession(adminResourceResolver.adaptTo(Session.class));
 
                     WorkflowModel workflowModel = workflowSession.getModel(config.getWorkflowModelId());
-
+                    boolean isTransient = isTransient(adminResourceResolver, workflowModel.getId());
                     boolean dirty = false;
                     while (capacity > 0) {
                         // Bring new payloads into the active workspace
@@ -328,10 +337,21 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                             log.debug("Onboarding payload [ {} ~> {} ]", payload.getPath(), payload.getPayloadPath());
                             Workflow workflow = workflowSession.startWorkflow(workflowModel,
                                     workflowSession.newWorkflowData("JCR_PATH", payload.getPayloadPath()));
-                            payload.updateWith(workflow);
-                            currentActivePayloads.add(payload);
-                            capacity--;
-                            dirty = true;
+
+                            if((workflow == null || workflow.getId() == null) && isTransient) {
+                                // Null and transient, then mark as complete as this is a race condition where WF Is faster than this check.
+                                complete(workspace, payload);
+                                dirty = true;
+                            } else if ((workflow != null && workflow.getId() == null)) {
+                                // If the workflow and workflowId are not null, then there is something to update the payload w so do that.
+                                payload.updateWith(workflow);
+                                currentActivePayloads.add(payload);
+                                capacity--;
+                                dirty = true;
+                            } else {
+                                // The WF is not transient and the WF is null, so something strange happened to it.
+                                forceTerminate(workspace, payload);
+                            }
                         } else {
                             // This means there is nothing
                             break;

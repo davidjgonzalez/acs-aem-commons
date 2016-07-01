@@ -329,7 +329,6 @@ public class Workspace {
         return failCount;
     }
 
-
     public void setError(String message) {
         setStatus(Status.STOPPED, SubStatus.ERROR);
         setMessage(message);
