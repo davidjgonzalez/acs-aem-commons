@@ -36,15 +36,16 @@ import org.apache.sling.commons.json.JSONObject;
 import org.apache.sling.models.annotations.Default;
 import org.apache.sling.models.annotations.Model;
 import org.apache.sling.models.annotations.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.jcr.Session;
 
-import static com.day.cq.wcm.foundation.List.log;
-
 @Model(adaptables = Resource.class)
 public class Payload {
+    private static final Logger log = LoggerFactory.getLogger(Payload.class);
 
     private static final String PN_WORKFLOW_INSTANCE_ID = "workflowInstanceId";
     private static final String PN_STATUS = "status";
@@ -101,10 +102,11 @@ public class Payload {
     public Workflow getWorkflow() throws WorkflowException {
         final WorkflowSession workflowSession =
                 workflowService.getWorkflowSession(resource.getResourceResolver().adaptTo(Session.class));
+        String tmp = getWorkflowInstanceId();
         try {
-            return workflowSession.getWorkflow(workflowInstanceId);
+            return workflowSession.getWorkflow(tmp);
         } catch (Exception e) {
-            log.error("Could not get workflow with id [ {} ]", workflowInstanceId, e);
+            log.error("Could not get workflow with id [ {} ]", tmp, e);
         }
 
         return null;
@@ -135,6 +137,7 @@ public class Payload {
 
         if (StringUtils.isBlank(getWorkflowInstanceId())) {
             workflowInstanceId = workflow.getId();
+            log.debug("!!!! storing workflow instance ID");
             properties.put(PN_WORKFLOW_INSTANCE_ID, workflowInstanceId);
         } else if (!StringUtils.equals(getWorkflowInstanceId(), workflow.getId())) {
             throw new PersistenceException("Batch Entry workflow instance does not match [ " + workflowInstanceId + " ] vs [ " + workflow.getId() + "  ]");

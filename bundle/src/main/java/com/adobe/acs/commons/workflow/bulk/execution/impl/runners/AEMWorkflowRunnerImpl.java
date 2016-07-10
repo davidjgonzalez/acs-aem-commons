@@ -258,8 +258,7 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                 }
 
                 if (config == null) {
-                    log.error("Bulk workflow process resource [ {} ] could not be found. Removing periodic job.",
-                            configPath);
+                    log.error("Bulk workflow process resource [ {} ] could not be found. Removing periodic job.", configPath);
                     scheduler.unschedule(jobName);
                 } else {
                     workspace = config.getWorkspace();
@@ -285,6 +284,7 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                                 // This could be a result of a purge.
                                 // Dont know what the status is so mark as Force Terminated
                                 forceTerminate(workspace, payload);
+                                log.warn("Force terminated payload [ {} ] when running under a non-transient Workflow, as workflow is null.", payload.getPath());
                             } if (workflow == null && isTransient(adminResourceResolver, config.getWorkflowModelId())) {
                                 // Transient WF.. very possible this WF instance has gone away
                                 complete(workspace, payload);
@@ -294,14 +294,14 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                                 complete(workspace, payload);
                             } else {
                                 // If active, check that the workflow has not expired
-                                Calendar now = Calendar.getInstance();
                                 Calendar expiresAt = Calendar.getInstance();
                                 expiresAt.setTime(workflow.getTimeStarted());
                                 expiresAt.add(Calendar.SECOND, config.getTimeout());
 
-                                if (!now.before(expiresAt)) {
+                                if (!Calendar.getInstance().before(expiresAt)) {
                                     payload.updateWith(workflow);
                                     forceTerminate(workspace, payload);
+                                    log.warn("Force terminated payload [ {} ~> {} ] as processing time has expired.", payload.getPath(), payload.getPayloadPath());
                                 } else {
                                     // Finally, if active and not expired, update status and let the workflow continue
                                     payload.updateWith(workflow);
@@ -312,14 +312,14 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                             // Logged in Payload class
                             forceTerminate(workspace, payload);
                         } catch (Exception e) {
-                            log.error("Error while processing payload [ {} ]", payload.getPayloadPath());
+                            log.error("Error while processing payload [ {} ~> {} ]", payload.getPath(), payload.getPayloadPath());
                             forceTerminate(workspace, payload);
                         }
                     }
 
                     int capacity = config.getBatchSize() - currentActivePayloads.size();
 
-                    log.debug("Available batch capacity is [ {} ]", capacity);
+                    //log.debug("Available batch capacity is [ {} ]", capacity);
 
                     WorkflowSession workflowSession =
                             workflowService.getWorkflowSession(adminResourceResolver.adaptTo(Session.class));
@@ -335,21 +335,23 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                             throttledTaskRunner.waitForLowCpuAndLowMemory();
 
                             log.debug("Onboarding payload [ {} ~> {} ]", payload.getPath(), payload.getPayloadPath());
+
                             Workflow workflow = workflowSession.startWorkflow(workflowModel,
                                     workflowSession.newWorkflowData("JCR_PATH", payload.getPayloadPath()));
 
                             if((workflow == null || workflow.getId() == null) && isTransient) {
                                 // Null and transient, then mark as complete as this is a race condition where WF Is faster than this check.
+                                log.debug("Payload [ {} ~> {} ] marked as complete as the Workflow is transient and can no longer be obtained", payload.getPath(), payload.getPayloadPath());
                                 complete(workspace, payload);
                                 dirty = true;
-                            } else if ((workflow != null && workflow.getId() == null)) {
+                            } else if ((workflow != null && workflow.getId() != null)) {
                                 // If the workflow and workflowId are not null, then there is something to update the payload w so do that.
                                 payload.updateWith(workflow);
                                 currentActivePayloads.add(payload);
                                 capacity--;
                                 dirty = true;
                             } else {
-                                // The WF is not transient and the WF is null, so something strange happened to it.
+                                log.warn("The WF is not transient and the WF is null, so something strange happened to it.");
                                 forceTerminate(workspace, payload);
                             }
                         } else {
