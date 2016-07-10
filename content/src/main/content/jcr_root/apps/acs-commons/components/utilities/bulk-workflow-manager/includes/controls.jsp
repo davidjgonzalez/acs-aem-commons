@@ -16,18 +16,14 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   ~ #L%
-  --%>
-
-<button ng-click="stop()"
+  --%><button ng-click="stop()"
         role="button"
         class="coral-Button coral-Button--warning"
-        ng-show="data.status.status === 'RUNNING' && data.status.subStatus !== 'STOPPING'"
-        class="warning">Stop Bulk Workflow</button>
+        ng-show="data.status.status === 'RUNNING' && data.status.subStatus !== 'STOPPING'">Stop Bulk Workflow</button>
 
 <button role="button"
         class="coral-Button coral-Button--disabled"
-        ng-show="data.status.subStatus === 'STOPPING'"
-        class="warning">Stopping...</button>
+        ng-show="data.status.subStatus === 'STOPPING'">Stopping...</button>
 
 <button ng-click="resume()"
         role="button"
@@ -36,10 +32,8 @@
         style="float: left;"
         class="primary">Resume Bulk Workflow</button>
 
-<div   style="margin-left: 12.5rem; line-height: 2.5rem"
-       ng-show="data.status.status === 'STOPPED'">
+<div style="clear: both;"></div>
 
-    <div ng-show="isWorkflow()">
-        <%@include file="interval-update.jsp"%>
-    </div>
+<div ng-show="isWorkflow()">
+    <%@include file="aem-workflow/interval-update.jsp"%>
 </div>

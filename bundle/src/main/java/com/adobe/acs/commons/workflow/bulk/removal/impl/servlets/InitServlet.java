@@ -66,7 +66,6 @@ public class InitServlet extends SlingSafeMethodsServlet {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-
         final JSONObject json = new JSONObject();
 
         try {

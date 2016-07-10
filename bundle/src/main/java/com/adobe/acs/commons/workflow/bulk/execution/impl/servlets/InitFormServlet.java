@@ -73,9 +73,12 @@ public class InitFormServlet extends SlingAllMethodsServlet {
                     AEMWorkflowRunnerImpl.class.getName()));
             json.accumulate("runnerTypes", new JSONObject().put("label", "Synthetic Workflow").put("value",
                     SyntheticWorkflowRunnerImpl.class.getName()));
+
+            // Removing Fast Action Manager due to objects going null
+            /**
             json.accumulate("runnerTypes", new JSONObject().put("label", "Synthetic Workflow w/ FAM").put("value",
                     FastActionManagerRunnerImpl.class.getName()));
-
+             **/
         } catch (JSONException e) {
             log.error("Could not create JSON for Bulk Workflow Runner options");
             throw new ServletException(e);

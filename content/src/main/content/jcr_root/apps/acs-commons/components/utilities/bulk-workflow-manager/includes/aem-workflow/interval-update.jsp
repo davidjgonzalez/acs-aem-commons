@@ -17,12 +17,15 @@
   ~ limitations under the License.
   ~ #L%
   --%>
-Update batch interval to
+<div   style="margin-left: 12.5rem; line-height: 2.5rem"
+       ng-show="data.status.status === 'STOPPED'">
+    Update batch interval to
 
-<input type="text"
-       class="coral-Form-field coral-Textfield"
-       ng-required="false"
-       ng-model="form.interval"
-       placeholder="{{ form.interval }}"/>
+    <input type="text"
+           class="coral-Form-field coral-Textfield"
+           ng-required="false"
+           ng-model="form.interval"
+           placeholder="{{ form.interval }}"/>
 
-seconds.
+    seconds.
+</div>

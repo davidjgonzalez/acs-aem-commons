@@ -18,7 +18,7 @@
  * #L%
  */
 
-/*global JSON: false, angular: false, moment: false */
+/*global JSON: false, angular: false, moment: false, window: false */
 
 angular.module('acs-commons-bulk-workflow-manager-app', ['acsCoral', 'ACS.Commons.notifications'])
     .controller('MainCtrl', ['$scope', '$http', '$timeout', 'NotificationsService',
@@ -63,16 +63,18 @@ angular.module('acs-commons-bulk-workflow-manager-app', ['acsCoral', 'ACS.Common
 
                     NotificationsService.shift();
                 }).error(function (data, status, headers, config) {
+                    NotificationsService.shift();
+
                     NotificationsService.add('error',
                         data.title || "Error starting Bulk Workflow",
                         data.message);
-
-                    NotificationsService.shift();
                 });
 
                 NotificationsService.add('notice',
                     "Starting...",
                     "Collecting payloads for processing. Depending on the query and number of payload items this may take some time. Please be patient.");
+
+                window.scrollTo(0, 0);
             };
 
             $scope.stop = function () {

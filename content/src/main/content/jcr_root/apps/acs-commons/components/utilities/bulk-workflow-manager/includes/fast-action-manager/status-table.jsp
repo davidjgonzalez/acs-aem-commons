@@ -17,5 +17,3 @@
   ~ limitations under the License.
   ~ #L%
   --%>
-<br/>
-<br/>

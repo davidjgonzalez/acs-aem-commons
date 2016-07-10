@@ -39,7 +39,8 @@
     </div>
 
     <%-- Progress Bar --%>
-    <div class="coral-Progress acs-section acs-progress-bar"
+    <div class="coral-Progress acs-progress-bar"
+         style="margin: 1rem 0"
          ng-show="data.status.percentComplete || data.status.percentComplete === 0">
         <div class="coral-Progress-bar">
             <div class="coral-Progress-status"
@@ -50,19 +51,8 @@
 </section>
 
 <%-- Controls --%>
-
 <section class="acs-section">
-    <div ng-show="isWorkflow()">
-        <%@include file="aem-workflow/controls.jsp"%>
-    </div>
-
-    <div ng-show="isSynthetic()">
-        <%@include file="synthetic-workflow/controls.jsp"%>
-    </div>
-
-    <div ng-show="isFAM()">
-        <%@include file="fast-action-manager/controls.jsp"%>
-    </div>
+    <%@include file="controls.jsp"%>
 </section>
 
 <%-- Running Payloads Table --%>

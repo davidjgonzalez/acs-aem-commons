@@ -77,13 +77,21 @@
 
             <tr class="coral-Table-row"
                 ng-show="data.status.startedAt">
-                <td class="coral-Table-cell">CPU Usage</td>
+                <td class="coral-Table-cell">
+                <span class="coral-Form-fieldinfo coral-Icon coral-Icon--infoCircle coral-Icon--sizeS" data-init="quicktip" data-quicktip-type="info" data-quicktip-arrow="bottom"
+                      data-quicktip-content="CPU usage throttled via 'ACS AEM Commons - Throttled Task Runner Service' configurable via OSGi configuration"></span>
+                    CPU Usage
+                </td>
                 <td class="coral-Table-cell">{{ data.status.systemStats.cpu }} / {{ data.status.systemStats.maxCpu }}</td>
             </tr>
 
             <tr class="coral-Table-row"
                 ng-show="data.status.startedAt">
-                <td class="coral-Table-cell">Memory Usage</td>
+                <td class="coral-Table-cell">
+                    <span class="coral-Form-fieldinfo coral-Icon coral-Icon--infoCircle coral-Icon--sizeS" data-init="quicktip" data-quicktip-type="info" data-quicktip-arrow="top"
+                          data-quicktip-content="Memory usage throttled via 'ACS AEM Commons - Throttled Task Runner Service' configurable via OSGi configuration"></span>
+                    Memory Usage
+                </td>
                 <td class="coral-Table-cell">{{ data.status.systemStats.mem }} / {{ data.status.systemStats.maxMem }}</td>
             </tr>
 
