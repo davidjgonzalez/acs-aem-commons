@@ -1,3 +1,25 @@
+<%-- Status Boxes --%>
+<div    ng-show="data.status.status === 'STOPPED'"
+        acs-coral-alert
+        data-alert-type="notice"
+        data-alert-size="large"
+        data-alert-title="Stopped">
+    The execution of this bulk workflow process was stopped.
+    Press the &quot;Resume Bulk Worklfow&quot; button below to resume bulk workflow processing.
+</div>
+
+<div    ng-show="data.status.status === 'COMPLETED'"
+        acs-coral-alert
+        data-alert-type="success"
+        data-alert-size="large"
+        data-alert-title="Complete">
+    The execution of this bulk run is complete. Please review the
+    <a target="_blank" href="/libs/cq/workflow/content/console.html">workflow history</a>
+    for any unsuccessful Workflow executions.
+    <br/>
+    To execute other workflow in bulk, create a new Bulk Workflow Manager page.
+</div>
+
 <%-- Status Summary --%>
 <h2>Bulk Workflow Execution Summary</h2>
 

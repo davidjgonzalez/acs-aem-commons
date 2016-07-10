@@ -28,6 +28,7 @@
     <div ng-show="showForm()">
         <%@include file="includes/form.jsp" %>
     </div>
+
     <div ng-hide="showForm()">
         <%@include file="includes/status.jsp" %>
     </div>

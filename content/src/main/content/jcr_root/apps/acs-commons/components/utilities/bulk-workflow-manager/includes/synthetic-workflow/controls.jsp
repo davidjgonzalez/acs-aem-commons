@@ -17,5 +17,20 @@
   ~ limitations under the License.
   ~ #L%
   --%>
-<br/>
-<br/>
+<button ng-click="stop()"
+        role="button"
+        class="coral-Button coral-Button--warning"
+        ng-show="data.status.status === 'RUNNING' && data.status.subStatus !== 'STOPPING'"
+        class="warning">Stop Bulk Workflow</button>
+
+<button role="button"
+        class="coral-Button coral-Button--disabled"
+        ng-show="data.status.subStatus === 'STOPPING'"
+        class="warning">Stopping...</button>
+
+<button ng-click="resume()"
+        role="button"
+        class="coral-Button coral-Button--primary"
+        ng-show="data.status.status === 'STOPPED'"
+        style="float: left;"
+        class="primary">Resume Bulk Workflow</button>
