@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ConfigResourceVisitor extends AbstractResourceVisitor {
-    private static Logger log = LoggerFactory.getLogger(ConfigResourceVisitor.class);
+    private static final Logger log = LoggerFactory.getLogger(ConfigResourceVisitor.class);
 
     private static final String BULK_WORKFLOW_MANAGER_PAGE_FOLDER_PATH = "/etc/acs-commons/bulk-workflow-manager";
     private static final String NT_PAGE_CONTENT = "cq:PageContent";
@@ -69,11 +69,10 @@ public class ConfigResourceVisitor extends AbstractResourceVisitor {
 
         // Ensure jcr:primaryType = cq:PageContent and 
         // that the sling:resourceType is that of Bulk Workflow Manager Page
-        if (NT_PAGE_CONTENT.equals(properties.get(JcrConstants.JCR_PRIMARYTYPE, String.class))) {
-            if (StringUtils.equals(BulkWorkflowEngine.SLING_RESOURCE_TYPE,
+        if (NT_PAGE_CONTENT.equals(properties.get(JcrConstants.JCR_PRIMARYTYPE, String.class))
+                && StringUtils.equals(BulkWorkflowEngine.SLING_RESOURCE_TYPE,
                     properties.get(JcrResourceConstants.SLING_RESOURCE_TYPE_PROPERTY, String.class))) {
-                this.configurations.add(resource);
-            }
+            this.configurations.add(resource);
         }
     }
 }
