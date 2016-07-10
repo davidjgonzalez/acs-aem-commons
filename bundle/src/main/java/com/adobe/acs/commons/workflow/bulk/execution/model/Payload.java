@@ -103,17 +103,18 @@ public class Payload {
         final WorkflowSession workflowSession =
                 workflowService.getWorkflowSession(resource.getResourceResolver().adaptTo(Session.class));
         String tmp = getWorkflowInstanceId();
+
         try {
             return workflowSession.getWorkflow(tmp);
         } catch (Exception e) {
-            log.error("Could not get workflow with id [ {} ]", tmp, e);
+            log.error(String.format("Could not get workflow with id [ %s ] for payload [ %s ~> %s ]", tmp, getPath(), getPayloadPath()), e);
         }
 
         return null;
     }
 
     public String getWorkflowInstanceId() {
-        if (StringUtils.isNotBlank(workflowInstanceId)) {
+        if (StringUtils.isBlank(workflowInstanceId)) {
             resource.getResourceResolver().refresh();
             workflowInstanceId = properties.get(PN_WORKFLOW_INSTANCE_ID, String.class);
         }
@@ -137,10 +138,9 @@ public class Payload {
 
         if (StringUtils.isBlank(getWorkflowInstanceId())) {
             workflowInstanceId = workflow.getId();
-            log.debug("!!!! storing workflow instance ID");
             properties.put(PN_WORKFLOW_INSTANCE_ID, workflowInstanceId);
         } else if (!StringUtils.equals(getWorkflowInstanceId(), workflow.getId())) {
-            throw new PersistenceException("Batch Entry workflow instance does not match [ " + workflowInstanceId + " ] vs [ " + workflow.getId() + "  ]");
+            throw new PersistenceException("Batch Entry workflow instance does not match. [ " + workflowInstanceId + " ] vs [ " + workflow.getId() + " ]");
         }
 
         if (!StringUtils.equals(status, workflow.getState())) {

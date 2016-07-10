@@ -69,6 +69,7 @@ public class Workspace {
     private static final String PN_STOPPED_AT = "stoppedAt";
     private static final String PN_MESSAGE = "message";
     private static final String PN_ACTION_MANAGER_NAME = "actionManagerName";
+    public static final String NN_PAYLOADS_LAUNCHPAD = "payloads_launchpad";
 
     private Resource resource;
 

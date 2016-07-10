@@ -65,66 +65,36 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
 
         int total = 0;
 
-        // Create node to store the run current working set
+        // Create Workspace Node
         Node workspace = JcrUtils.getOrAddNode(config.getResource().adaptTo(Node.class), Workspace.NN_WORKSPACE, Workspace.NT_UNORDERED);
-        Node currentPayloads = JcrUtils.getOrCreateByPath(workspace, Workspace.NN_PAYLOADS, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
+        // Create the PayloadGroups Launchpad node; this simply points to the first to process
+        Node currentPayloadGroup = JcrUtils.getOrCreateByPath(workspace, Workspace.NN_PAYLOADS_LAUNCHPAD, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
+        // Set the first Payload Group to be the launchpad node
+        JcrUtil.setProperty(workspace, Workspace.PN_ACTIVE_PAYLOAD_GROUPS, new String[]{currentPayloadGroup.getPath()});
 
-        JcrUtil.setProperty(workspace, Workspace.PN_ACTIVE_PAYLOAD_GROUPS, new String[]{currentPayloads.getPath()});
 
+        // No begin populating the actual PayloadGroup nodes
         ListIterator<Resource> itr = resources.listIterator();
 
-        boolean firstPayloadGroup = true;
-        List<String> activePayloads = new ArrayList<String>();
-
         while (itr.hasNext()) {
-            Resource payload = itr.next();
-
-            log.debug("Initializing payload with search result [ {} ]", payload.getPath());
-
-            if (StringUtils.isNotBlank(config.getRelativePath())) {
-                if (payload.getChild(config.getRelativePath()) != null) {
-                    payload = payload.getChild(config.getRelativePath());
-                } else {
-                    log.warn("Could not find node at [ {} ]", payload.getPath() + "/" + config.getRelativePath());
-                    continue;
-                }
-                // No rel path, so use the Query result node as the payload Node
-            }
-
-            total++;
-
-            Node payloadNode = JcrUtils.getOrCreateByPath(currentPayloads, Payload.NN_PAYLOAD, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
-            JcrUtil.setProperty(payloadNode, "path", payload.getPath());
-            if (firstPayloadGroup) {
-                activePayloads.add(payloadNode.getPath());
-            }
-
+            // Increment to a new PayloadGroup as needed
             if (total % config.getBatchSize() == 0 && itr.hasNext()) {
                 // payload group is complete; save...
-                Node tmpPayloads = JcrUtils.getOrCreateByPath(workspace, Workspace.NN_PAYLOADS, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
-                JcrUtil.setProperty(currentPayloads, PayloadGroup.PN_NEXT, tmpPayloads.getPath());
-                currentPayloads = tmpPayloads;
-
-                if (firstPayloadGroup) {
-                    firstPayloadGroup = false;
-                    JcrUtil.setProperty(workspace, Workspace.PN_ACTIVE_PAYLOADS, activePayloads.toArray(new String[activePayloads.size()]));
-                }
+                Node nextPayloadGroup = JcrUtils.getOrCreateByPath(workspace, Workspace.NN_PAYLOADS, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
+                JcrUtil.setProperty(currentPayloadGroup, PayloadGroup.PN_NEXT, nextPayloadGroup.getPath());
+                currentPayloadGroup = nextPayloadGroup;
             }
 
-            if (total % SAVE_THRESHOLD == 0) {
-                resourceResolver.commit();
-            } else if (!itr.hasNext()) {
-                // All search results are processed
+            // Process the payload
+            Resource payload = itr.next();
+            Node payloadNode = JcrUtils.getOrCreateByPath(currentPayloadGroup, Payload.NN_PAYLOAD, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
+            JcrUtil.setProperty(payloadNode, "path", payload.getPath());
+            log.debug("Created payload with search result [ {} ]", payload.getPath());
+
+            if (++total % SAVE_THRESHOLD == 0 || !itr.hasNext()) {
                 resourceResolver.commit();
             }
         } // while
-
-        if (firstPayloadGroup) {
-            // if batch size is larger than results...
-            JcrUtil.setProperty(workspace, Workspace.PN_ACTIVE_PAYLOADS, activePayloads.toArray(new String[activePayloads.size()]));
-            resourceResolver.commit();
-        }
-
 
         if (total > 0) {
             config.getWorkspace().getRunner().initialize(config.getWorkspace(), total);

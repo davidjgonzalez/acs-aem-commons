@@ -24,6 +24,7 @@ import com.adobe.acs.commons.fam.ActionManager;
 import com.adobe.acs.commons.fam.ActionManagerFactory;
 import com.adobe.acs.commons.fam.DeferredActions;
 import com.adobe.acs.commons.fam.ThrottledTaskRunner;
+import com.adobe.acs.commons.functions.BiConsumer;
 import com.adobe.acs.commons.functions.Consumer;
 import com.adobe.acs.commons.util.QueryHelper;
 import com.adobe.acs.commons.workflow.bulk.execution.BulkWorkflowRunner;
@@ -47,6 +48,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
+import javax.jcr.Session;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -124,31 +126,19 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
         super.stopWithError(workspace);
     }
 
-    public void complete(String workspacePath, ActionManager manager, final int success) throws PersistenceException, RepositoryException {
-        ResourceResolver resourceResolver = null;
+    public void complete(ResourceResolver resourceResolver, String workspacePath, ActionManager manager, final int success) throws PersistenceException, RepositoryException {
+        Workspace workspace = resourceResolver.getResource(workspacePath).adaptTo(Workspace.class);
 
-        try {
-            resourceResolver = resourceResolverFactory.getAdministrativeResourceResolver(null);
-            Workspace workspace = resourceResolver.getResource(workspacePath).adaptTo(Workspace.class);
-
-            workspace.setCompleteCount(success);
-            for (com.adobe.acs.commons.fam.Failure f : manager.getFailureList()) {
-                workspace.addFailure(f.getNodePath(), null, f.getTime());
-                workspace.incrementFailCount();
-            }
-
-            super.complete(workspace);
-
-            manager.addCleanupTask();
-            actionManagerFactory.purgeCompletedTasks();
-
-        } catch (LoginException e) {
-            log.error("Could not obtain a fresh resource resolver to complete", e);
-        } finally {
-            if (resourceResolver != null) {
-                resourceResolver.close();
-            }
+        workspace.setCompleteCount(success);
+        for (com.adobe.acs.commons.fam.Failure f : manager.getFailureList()) {
+            workspace.addFailure(f.getNodePath(), null, f.getTime());
+            workspace.incrementFailCount();
         }
+
+        super.complete(workspace);
+
+        manager.addCleanupTask();
+        actionManagerFactory.purgeCompletedTasks();
     }
 
     @Override
@@ -259,7 +249,7 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
                             }
                         } finally {
                             if (processed.incrementAndGet() == total) {
-                                complete(workspacePath, manager, success.get());
+                                complete(r, workspacePath, manager, success.get());
                             }
                         }
                         }

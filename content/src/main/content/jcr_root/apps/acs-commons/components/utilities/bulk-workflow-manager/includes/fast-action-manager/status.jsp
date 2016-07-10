@@ -113,7 +113,7 @@
 
         <tr class="coral-Table-row" ng-show="data.status.retryCount > 0">
             <td class="coral-Table-cell">Retries</td>
-            <td class="coral-Table-cell">{{ data.status.retryCount }} every {{ data.status.interval }} seconds </td>
+            <td class="coral-Table-cell">{{ data.status.retryCount }} time(s) every {{ data.status.interval }} second(s) </td>
         </tr>
 
 

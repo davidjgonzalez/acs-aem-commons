@@ -38,8 +38,8 @@
     <tr class="coral-Table-row">
         <td class="coral-Table-cell" colspan="2">
             <div style="text-align: center;">
-                <h3 style="color: #999">No failures so far!</h3>
-                <em class="coral-Icon coral-Icon--sentimentPositive" style="font-size: 100px; line-height: 130px; color: #eee;"></em>
+                <h3 style="color: #999">No Failures!</h3>
+                <em class="coral-Icon coral-Icon--thumbUp" style="font-size: 100px; line-height: 130px; color: #eee;"></em>
             </div>
         </td>
     </tr>

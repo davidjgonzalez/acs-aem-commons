@@ -319,8 +319,6 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
 
                     int capacity = config.getBatchSize() - currentActivePayloads.size();
 
-                    //log.debug("Available batch capacity is [ {} ]", capacity);
-
                     WorkflowSession workflowSession =
                             workflowService.getWorkflowSession(adminResourceResolver.adaptTo(Session.class));
 
