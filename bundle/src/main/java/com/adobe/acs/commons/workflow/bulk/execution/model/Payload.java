@@ -88,11 +88,19 @@ public class Payload {
     }
 
     public String getPayloadPath() {
-        return path;
+        return StringUtils.removeStart(path, "-");
     }
 
     public String getPath() {
         return resource.getPath();
+    }
+
+    public String getDereferencedPayloadPath() {
+        return path;
+    }
+
+    public String getDereferencedPath() {
+        return "-" + resource.getPath();
     }
 
     public PayloadGroup getPayloadGroup() {
@@ -157,4 +165,17 @@ public class Payload {
         json.put(PN_PATH, getPayloadPath());
         return json;
     }
+
+    public static String dereference(String str) {
+        if (!StringUtils.startsWith(str, "-")) {
+            str = "-" + str;
+        }
+
+        return str;
+    }
+
+    public static String reference(String str) {
+        return StringUtils.removeStart(str, "-");
+    }
+
 }

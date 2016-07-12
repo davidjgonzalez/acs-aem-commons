@@ -157,7 +157,7 @@ public final class CQIncludePropertyNamespaceServlet extends SlingSafeMethodsSer
     protected boolean accepts(SlingHttpServletRequest request) {
         if (request.getAttribute(REQ_ATTR) != null) {
             // Cyclic loop
-            log.warn("Identified a cyclic loop in the ACS Commons CQ Include Namespace prefix Servlet for [ {} ]",
+            log.warn("Identified a cyclic loop in the ACS Commons CQ Include Namespace dereference Servlet for [ {} ]",
                     request.getRequestURI());
             return false;
         }

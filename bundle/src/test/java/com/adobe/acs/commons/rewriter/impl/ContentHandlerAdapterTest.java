@@ -49,8 +49,8 @@ public class ContentHandlerAdapterTest {
         DefaultHandler adapter = new ContentHandlerAdapter(handler);
         adapter.setDocumentLocator(locator);
         adapter.startDocument();
-        adapter.startPrefixMapping("prefix", "uri");
-        adapter.endPrefixMapping("prefix");
+        adapter.startPrefixMapping("dereference", "uri");
+        adapter.endPrefixMapping("dereference");
         adapter.startElement("uri", "localName", "qName", attrs);
         adapter.endElement("uri", "localName", "qName");
         adapter.characters(characters, 1, 2);
@@ -61,8 +61,8 @@ public class ContentHandlerAdapterTest {
 
         verify(handler).setDocumentLocator(locator);
         verify(handler).startDocument();
-        verify(handler).startPrefixMapping("prefix", "uri");
-        verify(handler).endPrefixMapping("prefix");
+        verify(handler).startPrefixMapping("dereference", "uri");
+        verify(handler).endPrefixMapping("dereference");
         verify(handler).startElement("uri", "localName", "qName", attrs);
         verify(handler).endElement("uri", "localName", "qName");
         verify(handler).characters(characters, 1, 2);

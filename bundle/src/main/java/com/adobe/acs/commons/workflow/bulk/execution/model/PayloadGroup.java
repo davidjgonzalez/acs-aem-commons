@@ -20,6 +20,7 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.model;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.models.annotations.Model;
 import org.apache.sling.models.annotations.Optional;
@@ -52,6 +53,10 @@ public class PayloadGroup {
         return this.resource.getPath();
     }
 
+    public String getDereferencedPath() {
+        return "-" + this.resource.getPath();
+    }
+
     /**
      * @return the Workspace this payload group belongs to.
      */
@@ -67,13 +72,17 @@ public class PayloadGroup {
             return null;
         }
 
-        Resource r = resource.getResourceResolver().getResource(next);
+        Resource r = resource.getResourceResolver().getResource(getNext());
 
         if (r == null) {
             return null;
         }
 
         return r.adaptTo(PayloadGroup.class);
+    }
+
+    public String getNext() {
+        return StringUtils.removeStart(next, "-");
     }
 
     /**
@@ -111,5 +120,17 @@ public class PayloadGroup {
      */
     public boolean isLast() {
         return getNextPayloadGroup() == null;
+    }
+
+    public static String dereference(String str) {
+        if (!StringUtils.startsWith(str, "-")) {
+            str = "-" + str;
+        }
+
+        return str;
+    }
+
+    public static String reference(String str) {
+        return StringUtils.removeStart(str, "-");
     }
 }

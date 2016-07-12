@@ -20,6 +20,7 @@
 
 package com.adobe.acs.commons.workflow.bulk.execution.model;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.commons.json.JSONException;
 import org.apache.sling.commons.json.JSONObject;
@@ -51,10 +52,18 @@ public class Failure {
     private Calendar failedAt;
 
     public String getPath() {
-        return path;
+        return StringUtils.removeStart(path, "-");
     }
 
     public String getPayloadPath() {
+        return StringUtils.removeStart(payloadPath, "-");
+    }
+
+    public String getDereferencedPath() {
+        return path;
+    }
+
+    public String getDereferencedPayloadPath() {
         return payloadPath;
     }
 

@@ -29,7 +29,6 @@ import com.adobe.acs.commons.workflow.bulk.execution.model.Payload;
 import com.adobe.acs.commons.workflow.bulk.execution.model.PayloadGroup;
 import com.adobe.acs.commons.workflow.bulk.execution.model.Workspace;
 import com.day.cq.commons.jcr.JcrUtil;
-import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.jackrabbit.commons.JcrUtils;
 import org.apache.sling.api.resource.PersistenceException;
@@ -38,7 +37,6 @@ import org.apache.sling.api.resource.ResourceResolver;
 
 import javax.jcr.Node;
 import javax.jcr.RepositoryException;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.ListIterator;
@@ -70,7 +68,7 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
         // Create the PayloadGroups Launchpad node; this simply points to the first to process
         Node currentPayloadGroup = JcrUtils.getOrCreateByPath(workspace, Workspace.NN_PAYLOADS_LAUNCHPAD, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
         // Set the first Payload Group to be the launchpad node
-        JcrUtil.setProperty(workspace, Workspace.PN_ACTIVE_PAYLOAD_GROUPS, new String[]{currentPayloadGroup.getPath()});
+        JcrUtil.setProperty(workspace, Workspace.PN_ACTIVE_PAYLOAD_GROUPS, new String[]{PayloadGroup.dereference(currentPayloadGroup.getPath())});
 
 
         // No begin populating the actual PayloadGroup nodes
@@ -81,14 +79,14 @@ public abstract class AbstractWorkflowRunner implements BulkWorkflowRunner {
             if (total % config.getBatchSize() == 0 && itr.hasNext()) {
                 // payload group is complete; save...
                 Node nextPayloadGroup = JcrUtils.getOrCreateByPath(workspace, Workspace.NN_PAYLOADS, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
-                JcrUtil.setProperty(currentPayloadGroup, PayloadGroup.PN_NEXT, nextPayloadGroup.getPath());
+                JcrUtil.setProperty(currentPayloadGroup, PayloadGroup.PN_NEXT, PayloadGroup.dereference(nextPayloadGroup.getPath()));
                 currentPayloadGroup = nextPayloadGroup;
             }
 
             // Process the payload
             Resource payload = itr.next();
             Node payloadNode = JcrUtils.getOrCreateByPath(currentPayloadGroup, Payload.NN_PAYLOAD, true, Workspace.NT_UNORDERED, Workspace.NT_UNORDERED, false);
-            JcrUtil.setProperty(payloadNode, "path", payload.getPath());
+            JcrUtil.setProperty(payloadNode, "path", Payload.dereference(payload.getPath()));
             log.debug("Created payload with search result [ {} ]", payload.getPath());
 
             if (++total % SAVE_THRESHOLD == 0 || !itr.hasNext()) {

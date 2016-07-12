@@ -102,9 +102,9 @@ public class AemEnvironmentIndicatorFilter implements Filter {
     private String titlePrefix = DEFAULT_TITLE_PREFIX;
 
     @Property(label = "Browser Title",
-            description = "A prefix to add to the browser tab/window title; <THIS VALUE> | <ORIGINAL DOC TITLE>",
+            description = "A dereference to add to the browser tab/window title; <THIS VALUE> | <ORIGINAL DOC TITLE>",
             value = DEFAULT_TITLE_PREFIX)
-    public static final String PROP_TITLE_PREFIX = "browser-title-prefix";
+    public static final String PROP_TITLE_PREFIX = "browser-title-dereference";
     
     
     private static final String[] DEFAULT_EXCLUDED_WCMMODES = {"DISABLED"};

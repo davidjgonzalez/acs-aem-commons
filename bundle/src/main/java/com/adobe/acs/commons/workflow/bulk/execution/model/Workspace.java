@@ -48,6 +48,7 @@ import java.util.List;
 
 @Model(adaptables = Resource.class)
 public class Workspace {
+    private static final Logger log = LoggerFactory.getLogger(Workspace.class);
 
     public static final String NT_UNORDERED = "oak:Unstructured";
 
@@ -59,7 +60,6 @@ public class Workspace {
     public static final String PN_ACTIVE_PAYLOADS = "activePayloads";
     public static final String PN_STATUS = "status";
     public static final String PN_SUB_STATUS = "subStatus";
-    private static final Logger log = LoggerFactory.getLogger(Workspace.class);
     private static final String PN_INITIALIZED = "initialized";
     private static final String PN_COMPLETED_AT = "completedAt";
     private static final String PN_COUNT_COMPLETE = "completeCount";
@@ -69,7 +69,7 @@ public class Workspace {
     private static final String PN_STOPPED_AT = "stoppedAt";
     private static final String PN_MESSAGE = "message";
     private static final String PN_ACTION_MANAGER_NAME = "actionManagerName";
-    public static final String NN_PAYLOADS_LAUNCHPAD = "payloads_launchpad";
+    public static final String NN_PAYLOADS_LAUNCHPAD = "payloads_zero";
 
     private Resource resource;
 
@@ -246,7 +246,7 @@ public class Workspace {
     }
 
     public boolean isActive(PayloadGroup payloadGroup) {
-        return ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath());
+        return ArrayUtils.contains(activePayloadGroups, payloadGroup.getDereferencedPath());
     }
 
     public String getPath() {
@@ -348,8 +348,8 @@ public class Workspace {
     /** Internal logic proxies **/
 
     public void addActivePayload(Payload payload) {
-        if (!ArrayUtils.contains(activePayloads, payload.getPath())) {
-            activePayloads = (String[]) ArrayUtils.add(activePayloads, payload.getPath());
+        if (!ArrayUtils.contains(activePayloads, payload.getDereferencedPath())) {
+            activePayloads = (String[]) ArrayUtils.add(activePayloads, payload.getDereferencedPath());
             properties.put(PN_ACTIVE_PAYLOADS, activePayloads);
 
             addActivePayloadGroup(payload.getPayloadGroup());
@@ -363,8 +363,8 @@ public class Workspace {
     }
 
     public void removeActivePayload(Payload payload) {
-        if (ArrayUtils.contains(activePayloads, payload.getPath())) {
-            activePayloads = (String[]) ArrayUtils.removeElement(activePayloads, payload.getPath());
+        if (ArrayUtils.contains(activePayloads, payload.getDereferencedPath())) {
+            activePayloads = (String[]) ArrayUtils.removeElement(activePayloads, payload.getDereferencedPath());
             properties.put(PN_ACTIVE_PAYLOADS, activePayloads);
         }
     }
@@ -376,7 +376,7 @@ public class Workspace {
         List<Payload> payloads = new ArrayList<Payload>();
 
         for (String path : activePayloads) {
-            Resource r = resourceResolver.getResource(path);
+            Resource r = resourceResolver.getResource(Payload.reference(path));
             if (r != null) {
                 Payload p = r.adaptTo(Payload.class);
                 if (p != null) {
@@ -396,7 +396,7 @@ public class Workspace {
 
         if (activePayloadGroups != null) {
             for (String path : activePayloadGroups) {
-                Resource r = resourceResolver.getResource(path);
+                Resource r = resourceResolver.getResource(PayloadGroup.reference(path));
                 if (r == null) {
                     continue;
                 }
@@ -417,8 +417,8 @@ public class Workspace {
      * @param payloadGroup the payload group to add as active
      */
     public void addActivePayloadGroup(PayloadGroup payloadGroup) {
-        if (payloadGroup != null && !ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath())) {
-            activePayloadGroups = (String[]) ArrayUtils.add(activePayloadGroups, payloadGroup.getPath());
+        if (payloadGroup != null && !ArrayUtils.contains(activePayloadGroups, payloadGroup.getDereferencedPath())) {
+            activePayloadGroups = (String[]) ArrayUtils.add(activePayloadGroups, payloadGroup.getDereferencedPath());
             properties.put(PN_ACTIVE_PAYLOAD_GROUPS, activePayloadGroups);
         }
     }
@@ -429,14 +429,14 @@ public class Workspace {
      * @param payloadGroup the payload group to remove from the active list.
      */
     public void removeActivePayloadGroup(PayloadGroup payloadGroup) {
-        if (payloadGroup != null && ArrayUtils.contains(activePayloadGroups, payloadGroup.getPath())) {
-            activePayloadGroups = (String[]) ArrayUtils.removeElement(activePayloadGroups, payloadGroup.getPath());
+        if (payloadGroup != null && ArrayUtils.contains(activePayloadGroups, payloadGroup.getDereferencedPath())) {
+            activePayloadGroups = (String[]) ArrayUtils.removeElement(activePayloadGroups, payloadGroup.getDereferencedPath());
             properties.put(PN_ACTIVE_PAYLOAD_GROUPS, activePayloadGroups);
         }
     }
 
     public void addFailure(Payload payload) throws RepositoryException {
-        addFailure(payload.getPayloadPath(), payload.getPath(), Calendar.getInstance());
+        addFailure(payload.getDereferencedPayloadPath(), payload.getDereferencedPath(), Calendar.getInstance());
     }
 
     public void addFailure(String payloadPath, String trackPath, Calendar failedAt) throws RepositoryException {
@@ -446,7 +446,7 @@ public class Workspace {
         JcrUtil.setProperty(failure, Failure.PN_PAYLOAD_PATH, payloadPath);
 
         if (StringUtils.isNotBlank(trackPath)) {
-            JcrUtil.setProperty(failure, Failure.PN_PATH, trackPath);
+            JcrUtil.setProperty(failure, Failure.PN_PATH, Payload.dereference(trackPath));
         }
 
         if (failedAt != null) {
