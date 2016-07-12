@@ -24,6 +24,8 @@
         data-alert-size="large"
         data-alert-title="Stopped">
     The execution of this bulk workflow process was stopped.
+    <br/>
+    <br/>
     Press the &quot;Resume Bulk Worklfow&quot; button below to resume bulk workflow processing.
 </div>
 
@@ -32,7 +34,9 @@
         data-alert-type="success"
         data-alert-size="large"
         data-alert-title="Complete">
-    The execution of this bulk run is complete. Please review the list below to identify any payloads that could not be processed.
+    The execution of this bulk run is complete.
+    <span ng-show="data.status.failures.length > 0">Please review the list below to identify any payloads that could not be processed.</span>
+    <br/>
     <br/>
     To execute other workflow in bulk, create a new Bulk Workflow Manager page.
 </div>

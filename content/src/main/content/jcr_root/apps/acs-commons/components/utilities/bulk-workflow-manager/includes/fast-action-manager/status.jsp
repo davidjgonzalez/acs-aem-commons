@@ -23,7 +23,16 @@
         data-alert-size="large"
         data-alert-title="Stopped">
     The execution of this bulk workflow process was stopped.
-    Visit the <a target="_blank" href="/system/console/jmx">Fast Action Manager JMX console</a> to review and resume processing.
+    <br/>
+    <br/>
+    Press the &quot;Resume Bulk Worklfow&quot; button below to resume bulk workflow processing.
+    <br/>
+    <br/>
+    Visit the
+    <a target="_blank" href="/system/console/jmx/com.adobe.acs.commons%3Atype%3DAction+Manager" x-cq-linkchecker="skip">Action Manager</a>
+    and
+    <a target="_blank" href="/system/console/jmx/com.adobe.acs.commons.fam%3Atype%3DThrottled+Task+Runner" x-cq-linkchecker="skip">Throttled Task Runner</a>
+    JMX consoles for more detailed information and operations.
 </div>
 
 <div    ng-show="data.status.status === 'COMPLETED'"
@@ -31,9 +40,15 @@
         data-alert-type="success"
         data-alert-size="large"
         data-alert-title="Complete">
-    The execution of this bulk run is complete.
-    Review the list below to identify any payloads that could not be processed.
-    Visit the <a target="_blank" href="/system/console/jmx">Fast Action Manager JMX console</a> to review processing statistics.
+    <span ng-show="data.status.failures.length > 0">Review the list below to identify any payloads that could not be processed.</span>
+    <br/>
+    <br/>
+    Visit the
+    <a target="_blank" href="/system/console/jmx/com.adobe.acs.commons%3Atype%3DAction+Manager" x-cq-linkchecker="skip">Action Manager</a>
+    and
+    <a target="_blank" href="/system/console/jmx/com.adobe.acs.commons.fam%3Atype%3DThrottled+Task+Runner" x-cq-linkchecker="skip">Throttled Task Runner</a>
+    JMX consoles  to review processing statistics.
+    <br/>
     <br/>
     To execute other workflow in bulk, create a new Bulk Workflow Manager page.
 </div>

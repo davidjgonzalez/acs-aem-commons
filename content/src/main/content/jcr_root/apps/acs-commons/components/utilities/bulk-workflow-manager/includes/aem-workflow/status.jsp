@@ -5,6 +5,7 @@
         data-alert-size="large"
         data-alert-title="Stopped">
     The execution of this bulk workflow process was stopped.
+    <br/><br/>
     Press the &quot;Resume Bulk Worklfow&quot; button below to resume bulk workflow processing.
 </div>
 

@@ -58,29 +58,29 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
     private static final Logger log = LoggerFactory.getLogger(FastActionManagerRunnerImpl.class);
 
     @Reference
-    private ResourceResolverFactory resourceResolverFactory;
-
-    @Reference
-    private QueryHelper queryHelper;
-
-    @Reference
     private ThrottledTaskRunner throttledTaskRunner;
 
     @Reference
-    private ActionManagerFactory actionManagerFactory;
+    private ResourceResolverFactory resourceResolverFactoryRef;
 
     @Reference
-    private SyntheticWorkflowRunner swr;
+    private QueryHelper queryHelperRef;
 
     @Reference
-    private DeferredActions actions;
+    private ActionManagerFactory actionManagerFactoryRef;
+
+    @Reference
+    private SyntheticWorkflowRunner syntheticWorkflowRunnerRef;
+
+    @Reference
+    private DeferredActions actionsRef;
 
     /**
      * {@inheritDoc}
      */
     @Override
     public final Runnable getRunnable(final Config config) {
-        return new FastActionManagerRunnable(config);
+        return new FastActionManagerRunnable(config, resourceResolverFactoryRef, queryHelperRef, actionManagerFactoryRef, actionsRef, syntheticWorkflowRunnerRef);
     }
 
     @Override
@@ -126,7 +126,7 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
         super.stopWithError(workspace);
     }
 
-    public void complete(ResourceResolver resourceResolver, String workspacePath, ActionManager manager, final int success) throws PersistenceException, RepositoryException {
+    public void complete(ResourceResolver resourceResolver, String workspacePath, ActionManager manager, int success) throws PersistenceException, RepositoryException {
         Workspace workspace = resourceResolver.getResource(workspacePath).adaptTo(Workspace.class);
 
         workspace.setCompleteCount(success);
@@ -137,8 +137,8 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
 
         super.complete(workspace);
 
-        manager.addCleanupTask();
-        actionManagerFactory.purgeCompletedTasks();
+        manager.closeAllResolvers();
+        actionManagerFactoryRef.purgeCompletedTasks();
     }
 
     @Override
@@ -162,11 +162,26 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
 
     private class FastActionManagerRunnable implements Runnable {
         private final String configPath;
+        private final ResourceResolverFactory resourceResolverFactory;
+        private final QueryHelper queryHelper;
+        private final ActionManagerFactory actionManagerFactory;
+        private final DeferredActions actions;
+        private final SyntheticWorkflowRunner syntheticWorkflowRunner;
 
-        public FastActionManagerRunnable(Config config) {
+        public FastActionManagerRunnable(Config config,
+                                         ResourceResolverFactory resourceResolverFactory,
+                                         QueryHelper queryHelper,
+                                         ActionManagerFactory actionManagerFactory,
+                                         DeferredActions actions,
+                                         SyntheticWorkflowRunner syntheticWorkflowRunner) {
+
             this.configPath = config.getPath();
+            this.resourceResolverFactory = resourceResolverFactory;
+            this.queryHelper = queryHelper;
+            this.actionManagerFactory = actionManagerFactory;
+            this.actions = actions;
+            this.syntheticWorkflowRunner = syntheticWorkflowRunner;
         }
-
         public void run() {
             ResourceResolver resourceResolver;
             Resource configResource;
@@ -200,7 +215,7 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
                         resourceResolver,
                         config.getBatchSize());
 
-                final SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(
+                final SyntheticWorkflowModel model = syntheticWorkflowRunner.getSyntheticWorkflowModel(
                         resourceResolver,
                         config.getWorkflowModelId(),
                         true);
@@ -211,13 +226,12 @@ public class FastActionManagerRunnerImpl extends AbstractWorkflowRunner implemen
 
                 /** Begin the work of processing the results **/
 
-                final AtomicInteger processed = new AtomicInteger(0);
-                final AtomicInteger success = new AtomicInteger(0);
-
                 final String workspacePath = workspace.getPath();
-                final int total = resources.size();
                 final int retryCount = config.getRetryCount();
-                    final int retryPause = config.getInterval();
+                final int retryPause = config.getInterval();
+                final AtomicInteger processed = new AtomicInteger(0);
+                final int total = resources.size();
+                final AtomicInteger success = new AtomicInteger(0);
 
                 for (final Resource resource : resources) {
                     final String path = resource.getPath();
