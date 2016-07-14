@@ -88,7 +88,7 @@ public class Payload {
     }
 
     public String getPayloadPath() {
-        return StringUtils.removeStart(path, "-");
+        return reference(path);
     }
 
     public String getPath() {
@@ -100,7 +100,7 @@ public class Payload {
     }
 
     public String getDereferencedPath() {
-        return "-" + resource.getPath();
+        return dereference(resource.getPath());
     }
 
     public PayloadGroup getPayloadGroup() {
@@ -127,7 +127,7 @@ public class Payload {
             workflowInstanceId = properties.get(PN_WORKFLOW_INSTANCE_ID, String.class);
         }
 
-        return workflowInstanceId;
+        return reference(workflowInstanceId);
     }
 
     public boolean isOnboarded() {
@@ -146,7 +146,7 @@ public class Payload {
 
         if (StringUtils.isBlank(getWorkflowInstanceId())) {
             workflowInstanceId = workflow.getId();
-            properties.put(PN_WORKFLOW_INSTANCE_ID, workflowInstanceId);
+            properties.put(PN_WORKFLOW_INSTANCE_ID, dereference(workflowInstanceId));
         } else if (!StringUtils.equals(getWorkflowInstanceId(), workflow.getId())) {
             throw new PersistenceException("Batch Entry workflow instance does not match. [ " + workflowInstanceId + " ] vs [ " + workflow.getId() + " ]");
         }

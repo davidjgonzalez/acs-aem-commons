@@ -32,6 +32,7 @@ import com.day.cq.workflow.WorkflowService;
 import com.day.cq.workflow.WorkflowSession;
 import com.day.cq.workflow.exec.Workflow;
 import com.day.cq.workflow.model.WorkflowModel;
+import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
@@ -73,7 +74,7 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
      */
     @Override
     public final Runnable getRunnable(final Config config) {
-        return new AEMWorkflowRunnable(config);
+        return new AEMWorkflowRunnable(config, resourceResolverFactory, workflowService, throttledTaskRunner);
     }
 
     @Override
@@ -174,6 +175,7 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
 
         // No payloads in the active payload groups are eligible for onboarding
 
+
         PayloadGroup nextPayloadGroup = null;
         for (PayloadGroup payloadGroup : workspace.getActivePayloadGroups()) {
             nextPayloadGroup = onboardNextPayloadGroup(workspace, payloadGroup);
@@ -196,6 +198,22 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
         }
 
         return null;
+    }
+
+    private void cleanupActivePayloadGroups(Workspace workspace) {
+        for (PayloadGroup payloadGroup : workspace.getActivePayloadGroups()) {
+            boolean removeActivePayloadGroup = true;
+            for (Payload payload : workspace.getActivePayloads()) {
+                if (StringUtils.startsWith(payload.getPath(), payloadGroup.getPath() + "/")) {
+                    removeActivePayloadGroup = false;
+                    break;
+                }
+            }
+
+            if (removeActivePayloadGroup) {
+                workspace.removeActivePayloadGroup(payloadGroup);
+            }
+        }
     }
 
     private PayloadGroup onboardNextPayloadGroup(Workspace workspace, PayloadGroup payloadGroup) {
@@ -233,12 +251,21 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
     /** Runner's Runnable **/
 
     private class AEMWorkflowRunnable implements Runnable {
+        private final ResourceResolverFactory resourceResolverFactory;
+        private final ThrottledTaskRunner throttledTaskRunner;
+        private final WorkflowService workflowService;
         private String configPath ;
         private String jobName;
 
-        public AEMWorkflowRunnable(Config config) {
+        public AEMWorkflowRunnable(Config config,
+                                   ResourceResolverFactory resourceResolverFactory,
+                                   WorkflowService workflowService,
+                                   ThrottledTaskRunner throttledTaskRunner) {
             this.configPath = config.getPath();
             this.jobName = config.getWorkspace().getJobName();
+            this.resourceResolverFactory = resourceResolverFactory;
+            this.workflowService = workflowService;
+            this.throttledTaskRunner = throttledTaskRunner;
         }
 
         public void run() {
@@ -357,6 +384,8 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                             break;
                         }
                     }
+
+                    cleanupActivePayloadGroups(workspace);
 
                     if (!dirty && currentActivePayloads.size() == 0) {
                         // Check if we are in a completed state for the entire workspace.

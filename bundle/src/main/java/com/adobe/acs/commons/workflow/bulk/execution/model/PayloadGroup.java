@@ -54,7 +54,7 @@ public class PayloadGroup {
     }
 
     public String getDereferencedPath() {
-        return "-" + this.resource.getPath();
+        return dereference(this.resource.getPath());
     }
 
     /**
@@ -82,7 +82,7 @@ public class PayloadGroup {
     }
 
     public String getNext() {
-        return StringUtils.removeStart(next, "-");
+        return reference(next);
     }
 
     /**

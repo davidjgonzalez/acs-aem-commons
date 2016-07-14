@@ -55,12 +55,6 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
     private static final Logger log = LoggerFactory.getLogger(SyntheticWorkflowRunnerImpl.class);
 
     @Reference
-    private ActionManagerFactory actionManagerFactory;
-
-    @Reference
-    private DeferredActions actions;
-
-    @Reference
     private ResourceResolverFactory resourceResolverFactory;
 
     @Reference
@@ -74,7 +68,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
 
     @Override
     public final Runnable getRunnable(final Config config) {
-        return new SyntheticWorkflowRunnable(config);
+        return new SyntheticWorkflowRunnable(config, resourceResolverFactory, swr, throttledTaskRunner);
     }
 
     @Override
@@ -108,10 +102,19 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
     /** Runner's Runnable **/
 
     private class SyntheticWorkflowRunnable implements Runnable {
+        private final ResourceResolverFactory resourceResolverFactory;
+        private final SyntheticWorkflowRunner syntheticWorkflowRunner;
+        private final ThrottledTaskRunner throttledTaskRunner;
         private String configPath;
 
-        public SyntheticWorkflowRunnable(Config config) {
+        public SyntheticWorkflowRunnable(Config config,
+                                         ResourceResolverFactory resourceResolverFactory,
+                                         SyntheticWorkflowRunner syntheticWorkflowRunner,
+                                         ThrottledTaskRunner throttledTaskRunner) {
             this.configPath = config.getPath();
+            this.resourceResolverFactory = resourceResolverFactory;
+            this.syntheticWorkflowRunner = syntheticWorkflowRunner;
+            this.throttledTaskRunner = throttledTaskRunner;
         }
 
         public void run() {
@@ -133,7 +136,7 @@ public class SyntheticWorkflowRunnerImpl extends AbstractWorkflowRunner implemen
                 }
 
                 try {
-                    SyntheticWorkflowModel model = swr.getSyntheticWorkflowModel(resourceResolver, config.getWorkflowModelId(), true);
+                    SyntheticWorkflowModel model = syntheticWorkflowRunner.getSyntheticWorkflowModel(resourceResolver, config.getWorkflowModelId(), true);
                     resourceResolver.adaptTo(Session.class).getWorkspace().getObservationManager().setUserData("changedByWorkflowProcess");
 
                     PayloadGroup payloadGroup = null;
