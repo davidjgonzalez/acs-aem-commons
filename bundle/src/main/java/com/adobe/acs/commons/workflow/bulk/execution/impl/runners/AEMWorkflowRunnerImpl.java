@@ -91,7 +91,8 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
     public void complete(Workspace workspace, Payload payload) throws Exception {
         super.complete(workspace, payload);
 
-        if (workspace.getConfig().isPurgeWorkflow()) {
+        if (!isTransient(workspace.getResourceResolver(), workspace.getConfig().getWorkflowModelId())
+                && workspace.getConfig().isPurgeWorkflow()) {
             try {
                 purge(payload);
             } catch (WorkflowException e) {
@@ -359,6 +360,8 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                     WorkflowModel workflowModel = workflowSession.getModel(config.getWorkflowModelId());
                     boolean isTransient = isTransient(adminResourceResolver, workflowModel.getId());
                     boolean dirty = false;
+                    final int MAX = 10000;
+                    int count = 0;
                     while (capacity > 0) {
                         // Bring new payloads into the active workspace
                         Payload payload = onboardNextPayload(workspace);
@@ -369,13 +372,16 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                             Workflow workflow = workflowSession.startWorkflow(workflowModel,
                                     workflowSession.newWorkflowData("JCR_PATH", payload.getPayloadPath()));
 
-                            if((workflow == null || workflow.getId() == null) && isTransient) {
+                            if (isTransient) {
                                 // Null and transient, then mark as complete as this is a race condition where WF Is faster than this check.
                                 log.debug("Payload [ {} ~> {} ] marked as complete as the Workflow is transient and can no longer be obtained", payload.getPath(), payload.getPayloadPath());
                                 complete(workspace, payload);
+                                // Decrement capacity as this is processed. Requires moving onto
+                                capacity--;
                                 dirty = true;
                             } else if ((workflow != null && workflow.getId() != null)) {
                                 // If the workflow and workflowId are not null, then there is something to update the payload w so do that.
+                                log.debug("Payload [ {} ~> {} ] onboarded into activePayloads for tracking.", payload.getPath(), payload.getPayloadPath());
                                 payload.updateWith(workflow);
                                 currentActivePayloads.add(payload);
                                 capacity--;
@@ -383,10 +389,18 @@ public class AEMWorkflowRunnerImpl extends AbstractWorkflowRunner implements Bul
                             } else {
                                 log.warn("The WF is not transient and the WF is null, so something strange happened to it.");
                                 forceTerminate(workspace, payload);
+                                capacity--;
+                                dirty = true;
                             }
                         } else {
                             // This means there is nothing
+                            log.debug("Onboarded payload is null");
                             break;
+                        }
+
+                        // Infinite looping safe-guard
+                        if (count++ > MAX) {
+                            log.warn("Tried to onboard [ {} ] payloads and never ran out of capacity [ {} ]. Infinite loop-esque, so breaking.", count, capacity);
                         }
                     }
 
