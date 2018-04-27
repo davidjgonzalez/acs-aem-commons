@@ -19,25 +19,24 @@
  */
 package com.adobe.acs.commons.remoteassets.impl;
 
-import com.adobe.acs.commons.remoteassets.RemoteAssetsBinarySync;
+import com.adobe.acs.commons.remoteassets.RemoteAssetRequestCollector;
 import com.adobe.acs.commons.remoteassets.RemoteAssetsConfig;
+import com.adobe.acs.commons.remoteassets.RemoteAssetsRenditionsSync;
+import com.adobe.acs.commons.remoteassets.SyncStateManager;
+import com.day.cq.dam.api.Asset;
 import com.day.cq.dam.api.DamConstants;
+import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.ConfigurationPolicy;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.jackrabbit.api.security.user.User;
-import org.apache.jackrabbit.oak.spi.security.user.UserConstants;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceDecorator;
-import org.apache.sling.api.resource.ValueMap;
-import org.apache.sling.jcr.base.util.AccessControlUtil;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
-import javax.jcr.Session;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Calendar;
 import java.util.Set;
@@ -48,29 +47,35 @@ import java.util.concurrent.ConcurrentSkipListSet;
  * This "decorator" is used to detect the first time a "remote" asset is
  * referenced by the system and sync that asset from the remote server to
  * make it now a "true" asset.
+ *
+ * The dependency on the RemoteAssetConfig ensures this is only active when this feature is configured.
  */
 @Component(
         label = "ACS AEM Commons - Remote Assets - Asset Resource Decorator",
-        description = "Captures a request for a remote asset so that the binary can be sync'd to the current server making it a true local asset",
-        policy = ConfigurationPolicy.REQUIRE
+        description = "Captures a request for a remote asset so that the binary can be sync'd to the current server making it a true local asset"
 )
 @Service
 public class RemoteAssetDecorator implements ResourceDecorator {
-
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteAssetDecorator.class);
-
-    /**
-     * This set stores resource paths for remote assets that are in the process
-     * of being sync'd from the remote server.  This prevents an infinite loop
-     * when the RemoteAssetSync service fetches the asset in order to update it.
-     */
-    private static Set<String> remoteResourcesSyncing = new ConcurrentSkipListSet<>();
+    private static final Logger log = LoggerFactory.getLogger(RemoteAssetDecorator.class);
 
     @Reference
-    private RemoteAssetsBinarySync assetSync;
+    private RemoteAssetsRenditionsSync assetsRenditionsSync;
 
     @Reference
     private RemoteAssetsConfig config;
+
+    @Reference
+    private RemoteAssetRequestCollector remoteAssetCollector;
+
+    @Reference
+    private SyncStateManager syncStateManager;
+
+    private static final ThreadLocal<Boolean> THREAD_LOCAL = new ThreadLocal<Boolean>() {
+        @Override protected Boolean initialValue() {
+            set(false);
+            return get();
+        }
+    };
 
     /**
      * When resolving a remote asset, first sync the asset from the remote server.
@@ -81,27 +86,46 @@ public class RemoteAssetDecorator implements ResourceDecorator {
      */
     @Override
     public Resource decorate(final Resource resource) {
-        try {
-            if (!this.accepts(resource)) {
-                return resource;
-            }
-        } catch (Exception e) {
-            // Logging at debug level b/c if this happens it could represent a ton of logging
-            LOG.debug("Failed binary sync check for remote asset: {} - {}", resource.getPath(), e);
+        if (!this.accepts(resource)) {
             return resource;
         }
 
-        Resource ret = resource;
-        try {
-            remoteResourcesSyncing.add(resource.getPath());
-            LOG.info("Sync'ing remote asset binaries: {}", resource.getPath());
-            ret = this.assetSync.syncAsset(resource);
-        } catch (Exception e) {
-            LOG.error("Failed to sync binaries for remote asset: {} - {}", resource.getPath(), e);
-        } finally {
-            remoteResourcesSyncing.remove(resource.getPath());
+        final Asset asset = resource.adaptTo(Asset.class);
+
+        synchronized (syncStateManager) {
+            if (!syncStateManager.contains(asset.getPath())) {
+                syncStateManager.add(asset.getPath());
+                // ENSURE THIS IS REMOVED AFTER THE RENDITIONS ARE SYNC'D AND
+            } else {
+                return resource;
+            }
         }
-        return ret;
+
+        if (remoteAssetCollector.isEnabled()) {
+            remoteAssetCollector.addPath(asset.getPath());
+            log.debug("Collecting asset [ {} ] to bulk retrieve renditions at the end of the request.", asset.getPath());
+            return resource;
+        }
+
+        ResourceResolver serviceResourceResolver =  null;
+
+        try {
+            serviceResourceResolver = config.getResourceResolver();
+            assetsRenditionsSync.syncAssetRenditions(serviceResourceResolver, asset.getPath());
+        } catch (Exception e) {
+            log.error("Failed to sync remote renditions for asset [ {} ]", resource.getPath(), e);
+        } finally {
+            syncStateManager.remove(asset.getPath());
+
+            if (serviceResourceResolver != null) {
+                serviceResourceResolver.close();
+            }
+
+            // Refresh the requesting context
+            resource.getResourceResolver().refresh();
+        }
+
+        return resource;
     }
 
     /**
@@ -124,55 +148,78 @@ public class RemoteAssetDecorator implements ResourceDecorator {
      * @param resource Resource to check
      * @return true if resource is remote, else false
      */
-    private boolean accepts(final Resource resource) throws RepositoryException {
-        if (resource == null) {
+    private boolean accepts(final Resource resource) {
+        if (THREAD_LOCAL.get()) {
+            // This means that this decoration is happening INSIDE this accept method via one of these other checks, so skip!
             return false;
         }
+        THREAD_LOCAL.set(true);
 
-        ValueMap props = resource.getValueMap();
-        if (!DamConstants.NT_DAM_ASSETCONTENT.equals(props.get(JcrConstants.JCR_PRIMARYTYPE))) {
-            return false;
-        }
+         try {
+             if (resource == null) {
+                 return false;
+             }
 
-        if (!props.get(RemoteAssets.IS_REMOTE_ASSET, false)) {
-            return false;
-        }
+             if (syncStateManager.contains(resource.getPath())) {
+                 return false;
+             }
 
-        if (remoteResourcesSyncing.contains(resource.getPath())) {
-            return false;
-        }
+             if (!resource.getPath().startsWith(DamConstants.MOUNTPOINT_ASSETS)) {
+                 return false;
+             }
 
-        Calendar lastFailure = props.get(RemoteAssets.REMOTE_SYNC_FAILED, (Calendar) null);
-        if (lastFailure != null && System.currentTimeMillis() < (lastFailure.getTimeInMillis() + (this.config.getRetryDelay() * 60000))) {
-            return false;
-        }
+             if (!DamConstants.NT_DAM_ASSET.equals(resource.getValueMap().get(JcrConstants.JCR_PRIMARYTYPE, String.class))) {
+                 return false;
+             }
 
-        boolean matchesSyncPath = false;
-        for (String syncPath : this.config.getDamSyncPaths()) {
-            if (resource.getPath().startsWith(syncPath)) {
-                matchesSyncPath = true;
-            }
-        }
+             if (!RemoteAssets.isRemoteAsset(resource)) {
+                 return false;
+             }
 
-        if (matchesSyncPath) {
-            Session session = resource.getResourceResolver().adaptTo(Session.class);
-            String userId = session.getUserID();
-            if (!userId.equals(UserConstants.DEFAULT_ADMIN_ID)) {
-                if (this.config.getWhitelistedServiceUsers().contains(userId)) {
-                    return true;
-                }
+             /*
+             if (remoteAssetCollector.isEnabled() && remoteAssetCollector.contains(resource.getPath())) {
+                 return false;
+             }
+            */
 
-                User currentUser = (User) AccessControlUtil.getUserManager(session).getAuthorizable(userId);
-                if (currentUser != null && !currentUser.isSystemUser()) {
-                    return true;
-                } else {
-                    LOG.debug("Avoiding binary sync b/c this is a non-whitelisted service user: {}", session.getUserID());
-                }
-            } else {
-                LOG.debug("Avoiding binary sync for admin user");
-            }
-        }
+             final Calendar failureThreshold = RemoteAssets.getRemoteSyncFailed(resource);
+             if (failureThreshold != null) {
+                 final Calendar now = Calendar.getInstance();
+                 failureThreshold.add(Calendar.MINUTE, config.getRetryDelay());
 
-        return false;
+                 if (now.before(failureThreshold)) {
+                     log.debug("Resource is still in a quiet period due to a sync failure; refusing to decorate");
+                     return false;
+                 }
+             }
+
+             if (!StringUtils.startsWithAny(resource.getPath(),config.getDamSyncPaths().toArray(new String[config.getDamSyncPaths().size()]))) {
+                 return false;
+             }
+
+
+             final String userId = resource.getResourceResolver().getUserID();
+
+             //if (!UserConstants.DEFAULT_ADMIN_ID.equals(userId)) {
+             if (this.config.getWhitelistedServiceUsers().contains(userId)) {
+                 return true;
+             }
+
+
+             final User currentUser = resource.getResourceResolver().adaptTo(User.class);
+             if (currentUser != null && !currentUser.isSystemUser()) {
+                 return true;
+             } else {
+                 log.trace("Avoiding binary sync b/c this is a non-whitelisted service user: {}", userId);
+             }
+
+//            } else {
+             // log.debug("Avoiding binary sync for admin user");
+             //}
+
+             return false;
+         } finally {
+             THREAD_LOCAL.remove();
+         }
     }
 }

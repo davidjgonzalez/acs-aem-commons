@@ -19,39 +19,35 @@
  */
 package com.adobe.acs.commons.remoteassets.impl;
 
+import com.adobe.acs.commons.fam.ActionManager;
+import com.adobe.acs.commons.fam.ActionManagerFactory;
 import com.adobe.acs.commons.remoteassets.RemoteAssetsBinarySync;
 import com.adobe.acs.commons.remoteassets.RemoteAssetsConfig;
+import com.adobe.acs.commons.remoteassets.RemoteAssetsRenditionsSync;
 import com.adobe.granite.asset.api.RenditionHandler;
 import com.day.cq.dam.api.Asset;
 import com.day.cq.dam.api.DamConstants;
 import com.day.cq.dam.api.Rendition;
 import com.day.cq.dam.commons.util.DamUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.fluent.Executor;
 import org.apache.http.client.fluent.Request;
-import org.apache.jackrabbit.value.DateValue;
-import org.apache.sling.api.resource.ModifiableValueMap;
+import org.apache.sling.api.resource.LoginException;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
-import org.apache.sling.api.resource.ResourceResolverFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
-import javax.jcr.Session;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.util.GregorianCalendar;
+import java.util.Calendar;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -59,75 +55,98 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 /**
  * Service to sync a remote asset's binaries a from remote server. Implements {@link RemoteAssetsBinarySync}.
  */
-@Component(
-    label = "ACS AEM Commons - Remote Assets - Binary Sync Service",
-    description = "Pulls the binaries for a remote asset in order to make it a true local asset."
-)
+@Component(enabled = false)
 @Service
-public class RemoteAssetsBinarySyncImpl implements RemoteAssetsBinarySync {
-
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteAssetsBinarySyncImpl.class);
+public class RemoteAssetsBinarySyncImpl implements RemoteAssetsRenditionsSync {
+    private static final Logger log = LoggerFactory.getLogger(RemoteAssetsBinarySyncImpl.class);
 
     @Reference
-    private RemoteAssetsConfig remoteAssetsConfig;
+    private RemoteAssetsConfig config;
 
-    /**
-     * @see RemoteAssetsBinarySync#syncAsset(Resource)
-     * @param resource Resource
-     * @return Resource
-     */
+    @Reference
+    private ActionManagerFactory actionManagerFactory;
+
     @Override
-    public Resource syncAsset(Resource resource) {
-        ResourceResolver remoteAssetsResolver = this.remoteAssetsConfig.getResourceResolver();
+    public void syncAssetRenditions(ResourceResolver resourceResolver, String... assetPaths) {
+        ActionManager actionManager = null;
         try {
-            Resource localRes = remoteAssetsResolver.getResource(resource.getPath());
+            actionManager = config.getActionManager();
+        } catch (LoginException e) {
+            log.error("Could not aquire an action manager", e);
+        }
 
-            Asset asset = DamUtil.resolveToAsset(localRes);
-            URI pathUri = new URI(null, null, asset.getPath(), null);
-            String baseUrl = this.remoteAssetsConfig.getServer().concat(pathUri.toString()).concat("/_jcr_content/renditions/");
-
-            Iterator<? extends Rendition> renditions = asset.listRenditions();
-            while (renditions.hasNext()) {
-                Rendition assetRendition = renditions.next();
-                if (StringUtils.isEmpty(assetRendition.getMimeType())) {
-                    continue;
-                }
-                String renditionName = assetRendition.getName();
-                String remoteUrl = String.format("%s%s", baseUrl, renditionName);
-                setRenditionOnAsset(remoteUrl, assetRendition, asset, renditionName);
-            }
-
-            ModifiableValueMap localResProps = localRes.adaptTo(ModifiableValueMap.class);
-            localResProps.remove(RemoteAssets.IS_REMOTE_ASSET);
-            localResProps.remove(RemoteAssets.REMOTE_SYNC_FAILED);
-            remoteAssetsResolver.commit();
-            return localRes;
-        } catch (Exception e) {
-            LOG.error("Error transferring remote asset '{}' to local server", resource.getPath(), e);
+        for (String assetPath : assetPaths) {
             try {
-                remoteAssetsResolver.revert();
-            } catch (Exception re) {
-                LOG.error("Failed to rollback asset changes", re);
+                final Resource assetResource = resourceResolver.getResource(assetPath);
+                final Asset asset = DamUtil.resolveToAsset(assetResource);
+                final String url = new URI(config.getServer() + asset.getPath() + "/_jcr_content/renditions/").toString();
+
+                for (Rendition rendition : asset.getRenditions()) {
+                    if (actionManager != null) {
+                        actionManager.deferredWithResolver(rr -> {
+                            config.applyEventUserData(rr);
+
+                            fetchRendition(rr, rendition, url, asset);
+                        });
+                    } else {
+                        try {
+                            fetchRendition(resourceResolver, rendition, url, asset);
+                        } catch (IOException e) {
+                            log.error("Error transferring remote renditions [ {} ] to local server", rendition.getName(), e);
+                        }
+                    }
+                }
+
+                RemoteAssets.setIsRemoteAsset(assetResource, false);
+                RemoteAssets.setIsRemoteSyncFailed(assetResource, null);
+
+                resourceResolver.commit();
+
+            } catch (Exception e) {
+                log.error("Error transferring  [ {} ] remote asset to local server", assetPaths.length, e);
+
+                try {
+                    resourceResolver.revert();
+                } catch (Exception re) {
+                    log.error("Failed to rollback asset changes", re);
+                }
+
+                flagAssetAsFailedSync(resourceResolver, resourceResolver.getResource(assetPath));
             }
-            return flagAssetAsFailedSync(remoteAssetsResolver, resource);
-        } finally {
-            this.remoteAssetsConfig.closeResourceResolver(remoteAssetsResolver);
         }
     }
 
+    private void fetchRendition(ResourceResolver resourceResolver, Rendition rendition, String urlPrefix, Asset asset) throws IOException {
+        final long start = System.currentTimeMillis();
+
+        if (StringUtils.isEmpty(rendition.getMimeType())) {
+            return;
+        }
+
+        final String url = urlPrefix + rendition.getName();
+        setRenditionOnAsset(url, rendition, asset, rendition.getName());
+
+        log.debug("Synced rendition [ {} ] from remote server [ {} ] in [ {} ms ]",
+                new String[]{rendition.getName(), url, String.valueOf(System.currentTimeMillis() - start)});
+    }
+
+
     /**
      * Fetch binary from URL and set into the asset rendition.
-     * @param remoteUrl String
+     *
+     * @param remoteUrl      String
      * @param assetRendition Rendition
-     * @param asset Asset
-     * @param renditionName String
+     * @param asset          Asset
+     * @param renditionName  String
      * @throws FileNotFoundException exception
      */
     private void setRenditionOnAsset(String remoteUrl, Rendition assetRendition, Asset asset, String renditionName)
             throws IOException {
 
-        LOG.debug("Syncing from remote asset url {}", remoteUrl);
-        Executor executor = this.remoteAssetsConfig.getRemoteAssetsHttpExecutor();
+        log.debug("Syncing from remote asset url {}", remoteUrl);
+
+        Executor executor = this.config.getRemoteAssetsHttpExecutor();
+
         try (InputStream inputStream = executor.execute(Request.Get(remoteUrl)).returnContent().asStream()) {
             Map<String, Object> props = new HashMap<>();
             props.put(RenditionHandler.PROPERTY_RENDITION_MIME_TYPE, assetRendition.getMimeType());
@@ -138,28 +157,31 @@ public class RemoteAssetsBinarySyncImpl implements RemoteAssetsBinarySync {
             }
 
             asset.removeRendition(renditionName);
-            LOG.warn("Rendition '{}' not found on remote environment. Removing local rendition.", renditionName);
+            log.warn("Rendition '{}' not found on remote environment. Removing local rendition.", renditionName);
         }
     }
 
     /**
      * Sets a property on the resource if the asset sync failed.
+     *
      * @param resource Resource
      * @return Resource
      */
-    private Resource flagAssetAsFailedSync(ResourceResolver remoteAssetsResolver, Resource resource) {
+    private Resource flagAssetAsFailedSync(ResourceResolver resourceResolverWithServiceContext, Resource resource) {
         try {
-            Resource localRes = remoteAssetsResolver.getResource(resource.getPath());
-            ModifiableValueMap localResProps = localRes.adaptTo(ModifiableValueMap.class);
-            localResProps.put(RemoteAssets.REMOTE_SYNC_FAILED, new DateValue(new GregorianCalendar()));
-            remoteAssetsResolver.commit();
-            return localRes;
+            final Resource resourceWithServiceContext = resourceResolverWithServiceContext.getResource(resource.getPath());
+
+            RemoteAssets.setIsRemoteSyncFailed(resourceWithServiceContext, Calendar.getInstance());
+
+            resourceResolverWithServiceContext.commit();
+
+            return resourceWithServiceContext;
         } catch (Exception e) {
-            LOG.error("Error flagging remote asset '{}' as failed - asset may attempt to sync numerous times in succession", resource.getPath(), e);
+            log.error("Error flagging remote asset '{}' as failed - asset may attempt to sync numerous times in succession", resource.getPath(), e);
             try {
-                remoteAssetsResolver.revert();
+                resourceResolverWithServiceContext.revert();
             } catch (Exception re) {
-                LOG.error("Failed to rollback asset changes", re);
+                log.error("Failed to rollback asset changes", re);
             }
         }
         return resource;

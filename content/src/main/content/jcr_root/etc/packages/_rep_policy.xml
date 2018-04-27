@@ -5,4 +5,8 @@
             jcr:primaryType="rep:GrantACE"
             rep:principalName="acs-commons-automatic-package-replicator-service"
             rep:privileges="{Name}[jcr:read,jcr:write,crx:replicate,jcr:removeNode]"/>
+    <allow0
+            jcr:primaryType="rep:GrantACE"
+            rep:principalName="acs-commons-remote-assets-service"
+            rep:privileges="{Name}[jcr:read,rep:write]"/>
 </jcr:root>

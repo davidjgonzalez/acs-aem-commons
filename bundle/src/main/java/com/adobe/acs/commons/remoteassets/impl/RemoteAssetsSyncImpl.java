@@ -21,7 +21,7 @@ package com.adobe.acs.commons.remoteassets.impl;
 
 import com.adobe.acs.commons.assets.FileExtensionMimeTypeConstants;
 import com.adobe.acs.commons.remoteassets.RemoteAssetsConfig;
-import com.adobe.acs.commons.remoteassets.RemoteAssetsNodeSync;
+import com.adobe.acs.commons.remoteassets.RemoteAssetsSync;
 import com.day.cq.commons.jcr.JcrUtil;
 import com.day.cq.dam.api.Asset;
 import com.day.cq.dam.api.DamConstants;
@@ -37,9 +37,7 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSyntaxException;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
-import org.apache.felix.scr.annotations.Service;
 import org.apache.http.client.fluent.Executor;
 import org.apache.http.client.fluent.Request;
 import org.apache.http.osgi.services.HttpClientBuilderFactory;
@@ -76,17 +74,19 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Service to sync node tree from supplied felix configuration. Implements {@link RemoteAssetsNodeSync}.
+ * Service to sync node tree from supplied felix configuration. Implements {@link RemoteAssetsSync}.
  */
+/*
 @Component(
         immediate = true,
         metatype = true,
         label = "ACS AEM Commons - Remote Assets - Node Sync Service"
 )
 @Service
-public class RemoteAssetsNodeSyncImpl implements RemoteAssetsNodeSync {
+*/
+public class RemoteAssetsSyncImpl implements RemoteAssetsSync {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteAssetsNodeSyncImpl.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RemoteAssetsSyncImpl.class);
     private static final Pattern DATE_REGEX = Pattern
             .compile("[A-Za-z]{3}\\s[A-Za-z]{3}\\s\\d\\d\\s\\d\\d\\d\\d\\s\\d\\d:\\d\\d:\\d\\d\\sGMT[-+]\\d\\d\\d\\d");
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("EEE MMM dd yyyy HH:mm:ss 'GMT'Z");
@@ -112,11 +112,10 @@ public class RemoteAssetsNodeSyncImpl implements RemoteAssetsNodeSync {
     private int saveRefreshCount = 0;
 
     /**
-     * @see RemoteAssetsNodeSync#syncAssetNodes()
+     * @see RemoteAssetsSync#syncAssets(ResourceResolver remoteAssetsResolver)
      */
     @Override
-    public void syncAssetNodes() {
-        ResourceResolver remoteAssetsResolver = this.remoteAssetsConfig.getResourceResolver();
+    public long syncAssets(ResourceResolver remoteAssetsResolver) {
         try {
             List<String> syncPaths = new ArrayList<>();
             syncPaths.addAll(this.remoteAssetsConfig.getTagSyncPaths());
@@ -133,9 +132,9 @@ public class RemoteAssetsNodeSyncImpl implements RemoteAssetsNodeSync {
             }
         } catch (Exception e) {
             LOG.error("Unexpected error sync'ing remote asset nodes", e);
-        } finally {
-            this.remoteAssetsConfig.closeResourceResolver(remoteAssetsResolver);
         }
+
+        return -1;
     }
 
     /**
@@ -239,8 +238,9 @@ public class RemoteAssetsNodeSyncImpl implements RemoteAssetsNodeSync {
 
         ValueMap resourceProperties = resource.adaptTo(ModifiableValueMap.class);
         if (DamConstants.NT_DAM_ASSET.equals(parentResource.getValueMap().get(JcrConstants.JCR_PRIMARYTYPE, String.class))) {
-            resourceProperties.put(RemoteAssets.IS_REMOTE_ASSET, true);
-            LOG.debug("Property '{}' added for resource '{}'.", RemoteAssets.IS_REMOTE_ASSET, resource.getPath());
+            RemoteAssets.setIsRemoteAsset(resource, true);
+            //resourceProperties.put(RemoteAssets.IS_REMOTE_ASSET, true);
+            LOG.debug("Marked asset [ {} ] as a remote asset.", resource.getPath());
 
             // Save and refresh the session after the save refresh count has reached the configured amount.
             this.saveRefreshCount++;

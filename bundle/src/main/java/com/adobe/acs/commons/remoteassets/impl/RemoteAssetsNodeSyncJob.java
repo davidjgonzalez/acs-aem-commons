@@ -19,13 +19,16 @@
  */
 package com.adobe.acs.commons.remoteassets.impl;
 
-import com.adobe.acs.commons.remoteassets.RemoteAssetsNodeSync;
+import com.adobe.acs.commons.remoteassets.RemoteAssetsConfig;
+import com.adobe.acs.commons.remoteassets.RemoteAssetsMBean;
+import com.adobe.acs.commons.remoteassets.RemoteAssetsSync;
+import com.adobe.acs.commons.remoteassets.RemoteTagsSync;
 import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.ConfigurationPolicy;
 import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,8 +38,6 @@ import org.slf4j.LoggerFactory;
 @Component(
         label = "ACS AEM Commons - Remote Assets Sync Job",
         description = "Scheduled Service that runs the Remote Assets node sync.",
-        configurationFactory = true,
-        policy = ConfigurationPolicy.REQUIRE,
         metatype = true
 )
 @Properties({
@@ -50,23 +51,81 @@ import org.slf4j.LoggerFactory;
                 name = "scheduler.concurrent",
                 boolValue = false,
                 propertyPrivate = true
+        ),
+        @Property(
+                name = "jmx.objectname",
+                value = "com.adobe.acs.commons:type=Remote Asset Sync"
         )
 })
 @Service
-public class RemoteAssetsNodeSyncJob implements Runnable {
-
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteAssetsNodeSyncJob.class);
+public class RemoteAssetsNodeSyncJob implements Runnable, RemoteAssetsMBean {
+    private static final Logger log = LoggerFactory.getLogger(RemoteAssetsNodeSyncJob.class);
 
     @Reference
-    private RemoteAssetsNodeSync remoteAssetsNodeSync;
+    private RemoteAssetsSync remoteAssetsSync;
+
+    @Reference
+    private RemoteTagsSync remoteTagsSync;
+
+    // This reference acts as the dependency to enable this scheduled service.
+    @Reference
+    private RemoteAssetsConfig config;
 
     /**
      * @see Runnable#run().
      */
     @Override
     public final void run() {
-        LOG.info("Remote assets node sync job started.");
-        this.remoteAssetsNodeSync.syncAssetNodes();
-        LOG.info("Remote assets node sync job finished.");
+        syncAll();
+    }
+
+    @Override
+    public void syncAll() {
+       syncTags();
+       syncAssets();
+    }
+
+    @Override
+    public void syncTags() {
+        final long start = System.currentTimeMillis();
+
+        ResourceResolver serviceResourceResolver = null;
+
+        try {
+            serviceResourceResolver = config.getResourceResolver();
+
+            log.debug("Begin syncing tags from [ {} ]", config.getServer());
+
+            long tagCount = remoteTagsSync.syncTags(serviceResourceResolver);
+
+            log.info("Synced [ {} ] tags in [ {} seconds ]", tagCount, ((System.currentTimeMillis() - start) / 1000));
+
+        } finally {
+            if (serviceResourceResolver != null) {
+                serviceResourceResolver.close();
+            }
+        }
+    }
+
+    @Override
+    public void syncAssets() {
+        final long start = System.currentTimeMillis();
+
+        ResourceResolver serviceResourceResolver = null;
+
+        try {
+            serviceResourceResolver = config.getResourceResolver();
+
+            log.debug("Begin syncing assets from [ {} ]", config.getServer());
+
+            long assetCount = remoteAssetsSync.syncAssets(serviceResourceResolver);
+
+            log.info("Synced [ {} ] assets in [ {} seconds ]", assetCount, ((System.currentTimeMillis() - start) / 1000));
+
+        } finally {
+            if (serviceResourceResolver != null) {
+                serviceResourceResolver.close();
+            }
+        }
     }
 }

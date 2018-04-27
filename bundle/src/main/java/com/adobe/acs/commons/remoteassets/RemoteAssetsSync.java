@@ -19,17 +19,17 @@
  */
 package com.adobe.acs.commons.remoteassets;
 
-import com.adobe.granite.jmx.annotation.Description;
+import org.apache.sling.api.resource.ResourceResolver;
 
 /**
- * MBean interface for interacting with the Remote Asset Node Sync.
+ * Service that syncs remote asset nodes w/o binaries from the remote server.
  */
-@Description("MBean for managing the Remote Asset Sync.")
-public interface RemoteAssetsNodeSyncTriggerMBean {
+public interface RemoteAssetsSync {
 
     /**
-     * Method to run when triggering the syncAssetNodes() located in {@link RemoteAssetsNodeSync}.
+     * Sync remote asset nodes from remote server, excluding renditions.
+     *
+     * @return the number of assets processed. -1 indicates and error or unknown.
      */
-    @Description("Executes remote asset node sync based on configured paths.")
-    void syncAssetNodes();
+    long syncAssets(ResourceResolver resourceResolver);
 }

@@ -19,7 +19,9 @@
  */
 package com.adobe.acs.commons.remoteassets;
 
+import com.adobe.acs.commons.fam.ActionManager;
 import org.apache.http.client.fluent.Executor;
+import org.apache.sling.api.resource.LoginException;
 import org.apache.sling.api.resource.ResourceResolver;
 
 import java.util.List;
@@ -92,4 +94,9 @@ public interface RemoteAssetsConfig {
      * Close resourceResolver for the remote assets service user, along with associated session.
      */
     void closeResourceResolver(ResourceResolver resourceResolver);
+
+    ActionManager getActionManager() throws LoginException;
+
+    List<String> getEagerAssetRenditions();
+    void applyEventUserData(ResourceResolver resourceResolver);
 }

@@ -19,6 +19,8 @@
  */
 package com.adobe.acs.commons.remoteassets.impl;
 
+import com.adobe.acs.commons.fam.ActionManager;
+import com.adobe.acs.commons.fam.ActionManagerFactory;
 import com.adobe.acs.commons.remoteassets.RemoteAssetsConfig;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.felix.scr.annotations.Activate;
@@ -34,7 +36,6 @@ import org.apache.sling.api.resource.LoginException;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ResourceResolverFactory;
 import org.apache.sling.commons.osgi.PropertiesUtil;
-import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +44,6 @@ import javax.jcr.Session;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -63,7 +63,7 @@ import java.util.stream.Stream;
 )
 @Service()
 public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteAssetsConfigImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(RemoteAssetsConfigImpl.class);
     private static final boolean DEFAULT_ALLOW_INSECURE = false;
 
     @Property(label = "Server")
@@ -76,7 +76,7 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     private static final String PASSWORD_PROP = "server.pass";
 
     @Property(label = "Allow Insecure Connection", description = "Allow non-https connection to remote assets server, "
-            + "allowing potential compromize of conenction credentials", boolValue = DEFAULT_ALLOW_INSECURE)
+            + "allowing potential compromise of connection credentials", boolValue = DEFAULT_ALLOW_INSECURE)
     private static final String ALLOW_INSECURE_PROP = "server.insecure";
 
     @Property(
@@ -94,6 +94,24 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
             value = {}
     )
     private static final String DAM_SYNC_PATHS_PROP = "dam.paths";
+
+    @Property(
+            label = "Asset Sync Renditions (Eager)",
+            description = "Renditions to initially sync assets from the remote server.",
+            cardinality = Integer.MAX_VALUE,
+            value = {}
+    )
+    private static final String DAM_ASSET_RENDITIONS_EAGER = "dam.renditions.eager";
+
+    /*
+    @Property(
+            label = "Asset Sync Renditions (Lazy)",
+            description = "Renditions to lazily sync assets from the remote server.",
+            cardinality = Integer.MAX_VALUE,
+            value = {}
+    )
+    private static final String DAM_ASSET_RENDITIONS_LAZY = "dam.renditions.lazy";
+    */
 
     @Property(
             label = "Failure Retry Delay (in minutes)",
@@ -134,6 +152,9 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     private boolean allowInsecureRemote = false;
     private List<String> tagSyncPaths = new ArrayList<>();
     private List<String> damSyncPaths = new ArrayList<>();
+    private List<String> eagerAssetRenditions = new ArrayList<>();
+    private List<String> lazyAssetRenditions = new ArrayList<>();
+
     private Integer retryDelay;
     private Integer saveInterval;
     private String eventUserData = StringUtils.EMPTY;
@@ -144,34 +165,51 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     @Reference
     private ResourceResolverFactory resourceResolverFactory;
 
+    @Reference
+    private ActionManagerFactory actionManagerFactory;
+
     /**
      * Method to run on activation.
-     * @param componentContext ComponentContext
+     * @param properties OSGi Component properties
      */
     @Activate
     @Modified
-    private void activate(final ComponentContext componentContext) {
-        final Dictionary<String, Object> properties = componentContext.getProperties();
-
+    private void activate(final Map<String, Object> properties) {
         this.server = PropertiesUtil.toString(properties.get(SERVER_PROP), StringUtils.EMPTY);
         if (StringUtils.isBlank(this.server)) {
             throw new IllegalArgumentException("Remote server must be specified");
         }
+
         this.username = PropertiesUtil.toString(properties.get(USERNAME_PROP), StringUtils.EMPTY);
         if (StringUtils.isBlank(this.username)) {
             throw new IllegalArgumentException("Remote server username must be specified");
         }
+
         this.password = PropertiesUtil.toString(properties.get(PASSWORD_PROP), StringUtils.EMPTY);
         if (StringUtils.isBlank(this.password)) {
             throw new IllegalArgumentException("Remote server password must be specified");
         }
+
         this.allowInsecureRemote = PropertiesUtil.toBoolean(properties.get(ALLOW_INSECURE_PROP), DEFAULT_ALLOW_INSECURE);
+
         this.tagSyncPaths = Stream.of(PropertiesUtil.toStringArray(properties.get(TAG_SYNC_PATHS_PROP), new String[0]))
                 .filter(item -> StringUtils.isNotBlank(item))
                 .collect(Collectors.toList());
+
         this.damSyncPaths = Stream.of(PropertiesUtil.toStringArray(properties.get(DAM_SYNC_PATHS_PROP), new String[0]))
                 .filter(item -> StringUtils.isNotBlank(item))
                 .collect(Collectors.toList());
+
+        this.eagerAssetRenditions = Stream.of(PropertiesUtil.toStringArray(properties.get(DAM_ASSET_RENDITIONS_EAGER), new String[0]))
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toList());
+
+        /*
+        this.lazyAssetRenditions = Stream.of(PropertiesUtil.toStringArray(properties.get(DAM_ASSET_RENDITIONS_LAZY), new String[0]))
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toList());
+        */
+
         this.retryDelay = PropertiesUtil.toInteger(properties.get(RETRY_DELAY_PROP), 1);
         this.saveInterval = PropertiesUtil.toInteger(properties.get(SAVE_INTERVAL_PROP), 100);
         this.eventUserData = PropertiesUtil.toString(properties.get(EVENT_USER_DATA_PROP), StringUtils.EMPTY);
@@ -225,6 +263,11 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     @Override
     public List<String> getDamSyncPaths() {
         return this.damSyncPaths;
+    }
+
+    @Override
+    public List<String> getEagerAssetRenditions() {
+        return eagerAssetRenditions;
     }
 
     /**
@@ -281,13 +324,10 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
             Map<String, Object> userParams = new HashMap<>();
             userParams.put(ResourceResolverFactory.SUBSERVICE, RemoteAssets.SERVICE_NAME);
             ResourceResolver resourceResolver = this.resourceResolverFactory.getServiceResourceResolver(userParams);
-            Session session = resourceResolver.adaptTo(Session.class);
-            if (StringUtils.isNotBlank(this.getEventUserData())) {
-                session.getWorkspace().getObservationManager().setUserData(this.getEventUserData());
-            }
+            applyEventUserData(resourceResolver);
             return resourceResolver;
         } catch (Exception e) {
-            LOG.error("Remote assets functionality cannot be enabled - service user login failed");
+            log.error("Remote assets functionality cannot be enabled - service user login failed");
             throw new RemoteAssetsServiceException(e);
         }
     }
@@ -298,18 +338,28 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     @Override
     public void closeResourceResolver(ResourceResolver resourceResolver) {
         if (resourceResolver != null) {
+            resourceResolver.close();
+        }
+    }
+
+    @Override
+    public synchronized ActionManager getActionManager() throws LoginException {
+        final String ACTION_MANAGER_NAME = "ACS AEM Commons - Remote Assets Sync";
+
+        if (actionManagerFactory.hasActionManager(ACTION_MANAGER_NAME)) {
+            return actionManagerFactory.getActionManager(ACTION_MANAGER_NAME);
+        } else {
+            return actionManagerFactory.createTaskManager(ACTION_MANAGER_NAME , getResourceResolver(), getSaveInterval());
+        }
+    }
+
+    public void applyEventUserData(ResourceResolver resourceResolver) {
+        if (StringUtils.isNotBlank(this.getEventUserData())) {
+            Session session = resourceResolver.adaptTo(Session.class);
             try {
-                Session session = resourceResolver.adaptTo(Session.class);
-                if (session != null) {
-                    session.logout();
-                }
-            } catch (Exception e) {
-                LOG.warn("Failed session.logout()", e);
-            }
-            try {
-                resourceResolver.close();
-            } catch (Exception e) {
-                LOG.warn("Failed resourceResolver.close()", e);
+                session.getWorkspace().getObservationManager().setUserData(this.getEventUserData());
+            } catch (RepositoryException e) {
+                log.error("Could not set user event data [ {} ] on the session.", getEventUserData());
             }
         }
     }
@@ -324,7 +374,7 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
 
         if (!url.getProtocol().equalsIgnoreCase("https")) {
             if (this.allowInsecureRemote) {
-                LOG.warn("Remote Assets connection is not HTTPS - authentication username and password will be"
+                log.warn("Remote Assets connection is not HTTPS - authentication username and password will be"
                         + " communicated in CLEAR TEXT.  This configuration is NOT recommended, as it may allow"
                         + " credentials to be compromised!");
             } else {

@@ -19,13 +19,17 @@
  */
 package com.adobe.acs.commons.remoteassets;
 
+import org.apache.sling.api.resource.ResourceResolver;
+
 /**
- * Service that syncs remote asset nodes w/o binaries from the remote server.
+ * Service that syncs remote tags from the remote server.
  */
-public interface RemoteAssetsNodeSync {
+public interface RemoteTagsSync {
 
     /**
-     * Sync remote asset nodes from remote server, excluding binaries.
+     * Sync remote tags from remote server.
+     *
+     * @return the number of tags processed. -1 indicates and error or unknown.
      */
-    void syncAssetNodes();
+    long syncTags(ResourceResolver resourceResolver);
 }
