@@ -1,4 +1,4 @@
-package com.adobe.acs.commons.remoteassets.impl.packages;
+package com.adobe.acs.commons.remoteassets.impl.packages.sync;
 
 import com.adobe.acs.commons.remoteassets.SyncStateManager;
 import org.apache.felix.scr.annotations.Component;

@@ -43,6 +43,12 @@ public class RemoteAssetsPackage extends RemotePackage {
                 rules.add(includeRenditions);
             }
 
+            JsonObject excludeSubassets = new JsonObject();
+            excludeSubassets.add("modifier", new JsonPrimitive("exclude"));
+            excludeSubassets.add("pattern", new JsonPrimitive("/content/dam/.*/subassets/.*"));
+            rules.add(excludeSubassets);
+
+
             filter.add("rules", rules);
 
             json.add(filter);

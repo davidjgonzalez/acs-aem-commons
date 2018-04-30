@@ -21,6 +21,9 @@ package com.adobe.acs.commons.remoteassets;
 
 import org.apache.sling.api.resource.ResourceResolver;
 
+import java.util.Collection;
+import java.util.Map;
+
 /**
  * Service that syncs remote asset renditions from the remote server.
  */
@@ -30,4 +33,7 @@ public interface RemoteAssetsRenditionsSync {
      * Sync remote asset renditions from remote server.
      */
     void syncAssetRenditions(ResourceResolver resourceResolver, String... assetPaths);
+
+    void syncAssetRenditions(ResourceResolver resourceResolver, Map<String, Collection<String>> assetAndExcludedRenditions);
+
 }

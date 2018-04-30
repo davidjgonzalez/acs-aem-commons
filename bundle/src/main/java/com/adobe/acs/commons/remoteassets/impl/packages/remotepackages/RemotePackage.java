@@ -2,6 +2,7 @@ package com.adobe.acs.commons.remoteassets.impl.packages.remotepackages;
 
 import com.google.gson.JsonArray;
 
+import java.util.Collection;
 import java.util.List;
 
 public abstract class RemotePackage {
@@ -12,9 +13,9 @@ public abstract class RemotePackage {
     protected final String name;
     protected final String group;
     protected final String version;
-    protected final List<String> syncPaths;
+    protected final Collection<String> syncPaths;
 
-    public RemotePackage(String name, String group, String version, List<String> syncPaths) {
+    public RemotePackage(String name, String group, String version, Collection<String> syncPaths) {
         this.name = name;
         this.group = group;
         this.version = version;

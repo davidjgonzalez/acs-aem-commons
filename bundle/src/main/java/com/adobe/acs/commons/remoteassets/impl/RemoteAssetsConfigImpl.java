@@ -23,15 +23,10 @@ import com.adobe.acs.commons.fam.ActionManager;
 import com.adobe.acs.commons.fam.ActionManagerFactory;
 import com.adobe.acs.commons.remoteassets.RemoteAssetsConfig;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.felix.scr.annotations.Activate;
-import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.ConfigurationPolicy;
-import org.apache.felix.scr.annotations.Modified;
-import org.apache.felix.scr.annotations.Property;
-import org.apache.felix.scr.annotations.Reference;
-import org.apache.felix.scr.annotations.Service;
+import org.apache.felix.scr.annotations.*;
 import org.apache.http.HttpHost;
 import org.apache.http.client.fluent.Executor;
+import org.apache.jackrabbit.JcrConstants;
 import org.apache.sling.api.resource.LoginException;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ResourceResolverFactory;
@@ -41,14 +36,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.io.UnsupportedEncodingException;
+import java.net.*;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -103,7 +93,7 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     )
     private static final String DAM_ASSET_RENDITIONS_EAGER = "dam.renditions.eager";
 
-    /*
+
     @Property(
             label = "Asset Sync Renditions (Lazy)",
             description = "Renditions to lazily sync assets from the remote server.",
@@ -111,7 +101,7 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
             value = {}
     )
     private static final String DAM_ASSET_RENDITIONS_LAZY = "dam.renditions.lazy";
-    */
+
 
     @Property(
             label = "Failure Retry Delay (in minutes)",
@@ -170,6 +160,7 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
 
     /**
      * Method to run on activation.
+     *
      * @param properties OSGi Component properties
      */
     @Activate
@@ -204,11 +195,10 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.toList());
 
-        /*
+
         this.lazyAssetRenditions = Stream.of(PropertiesUtil.toStringArray(properties.get(DAM_ASSET_RENDITIONS_LAZY), new String[0]))
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.toList());
-        */
 
         this.retryDelay = PropertiesUtil.toInteger(properties.get(RETRY_DELAY_PROP), 1);
         this.saveInterval = PropertiesUtil.toInteger(properties.get(SAVE_INTERVAL_PROP), 100);
@@ -221,8 +211,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getServer()
      * @return String
+     * @see RemoteAssetsConfig#getServer()
      */
     @Override
     public String getServer() {
@@ -230,8 +220,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getUsername()
      * @return String
+     * @see RemoteAssetsConfig#getUsername()
      */
     @Override
     public String getUsername() {
@@ -239,8 +229,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getPassword()
      * @return String
+     * @see RemoteAssetsConfig#getPassword()
      */
     @Override
     public String getPassword() {
@@ -248,8 +238,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getTagSyncPaths()
      * @return List<String>
+     * @see RemoteAssetsConfig#getTagSyncPaths()
      */
     @Override
     public List<String> getTagSyncPaths() {
@@ -257,8 +247,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getDamSyncPaths()
      * @return List<String>
+     * @see RemoteAssetsConfig#getDamSyncPaths()
      */
     @Override
     public List<String> getDamSyncPaths() {
@@ -271,8 +261,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getRetryDelay()
      * @return Integer
+     * @see RemoteAssetsConfig#getRetryDelay()
      */
     @Override
     public Integer getRetryDelay() {
@@ -280,8 +270,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getSaveInterval()
      * @return Integer
+     * @see RemoteAssetsConfig#getSaveInterval()
      */
     @Override
     public Integer getSaveInterval() {
@@ -289,8 +279,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getEventUserData()
      * @return String
+     * @see RemoteAssetsConfig#getEventUserData()
      */
     @Override
     public String getEventUserData() {
@@ -298,8 +288,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getWhitelistedServiceUsers()
      * @return String
+     * @see RemoteAssetsConfig#getWhitelistedServiceUsers()
      */
     @Override
     public Set<String> getWhitelistedServiceUsers() {
@@ -307,8 +297,8 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
     }
 
     /**
-     * @see RemoteAssetsConfig#getRemoteAssetsHttpExecutor()
      * @return Executor
+     * @see RemoteAssetsConfig#getRemoteAssetsHttpExecutor()
      */
     @Override
     public Executor getRemoteAssetsHttpExecutor() {
@@ -349,7 +339,7 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
         if (actionManagerFactory.hasActionManager(ACTION_MANAGER_NAME)) {
             return actionManagerFactory.getActionManager(ACTION_MANAGER_NAME);
         } else {
-            return actionManagerFactory.createTaskManager(ACTION_MANAGER_NAME , getResourceResolver(), getSaveInterval());
+            return actionManagerFactory.createTaskManager(ACTION_MANAGER_NAME, getResourceResolver(), getSaveInterval());
         }
     }
 
@@ -362,6 +352,20 @@ public class RemoteAssetsConfigImpl implements RemoteAssetsConfig {
                 log.error("Could not set user event data [ {} ] on the session.", getEventUserData());
             }
         }
+    }
+
+    @Override
+    public List<String> getLazyAssetRenditions() {
+        return lazyAssetRenditions;
+    }
+
+    @Override
+    public URI getRemoteURI(String path) throws URISyntaxException {
+        String prefix = StringUtils.removeEnd(getServer(), "/");
+        path = StringUtils.replace(StringUtils.removeStart(path, "/"), JcrConstants.JCR_CONTENT, "_jcr_content");
+        path = path.replaceAll(" ", "%20");
+
+        return new URI(prefix + "/" + path);
     }
 
     private void buildRemoteHttpExecutor() {

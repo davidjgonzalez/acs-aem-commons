@@ -13,6 +13,7 @@ import com.adobe.acs.commons.remoteassets.impl.packages.remotepackages.RemoteAss
 import com.adobe.acs.commons.remoteassets.impl.packages.remotepackages.RemoteAssetsPackage;
 import com.adobe.acs.commons.remoteassets.impl.packages.remotepackages.RemotePackage;
 import com.adobe.acs.commons.remoteassets.impl.packages.remotepackages.RemoteTagsPackage;
+import com.day.cq.dam.commons.util.DamUtil;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.apache.commons.io.IOUtils;
@@ -37,6 +38,7 @@ import org.apache.jackrabbit.vault.packaging.JcrPackageManager;
 import org.apache.jackrabbit.vault.packaging.Packaging;
 import org.apache.sling.api.resource.LoginException;
 import org.apache.sling.api.resource.PersistenceException;
+import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +46,8 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.Session;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -64,7 +68,7 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
     private HttpClientBuilderFactory httpClientBuilderFactory;
 
     @Reference
-    private AssetPlaceholder assetPlaceholder;
+    private RemoteAssetsRenditions remoteAssetsRenditions;
 
 
     @Reference
@@ -97,7 +101,7 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
             addPlaceholderRenditions(resourceResolver, paths);
 
             return paths.size();
-        } catch (RemoteAssetsSyncException e) {
+        } catch (RemoteAssetsSyncException | URISyntaxException e) {
             log.error("Error syncing remote asset nodes.", e);
             return -1;
         }
@@ -126,7 +130,7 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
             removeRemotePackage(remotePackage);
 
             return paths.size();
-        } catch (RemoteAssetsSyncException e) {
+        } catch (RemoteAssetsSyncException | URISyntaxException e) {
             log.error("Error syncing remote tag nodes.", e);
             return -1;
         }
@@ -134,7 +138,15 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
 
     @Override
     public void syncAssetRenditions(final ResourceResolver resourceResolver, final String... assetPaths) {
-        if (assetPaths == null || assetPaths.length == 0) {
+        final Map<String, Collection<String>> assetsAndExcludedRenditions = new HashMap<>();
+        Arrays.stream(assetPaths).forEach(p -> assetsAndExcludedRenditions.put(p, Collections.EMPTY_LIST));
+
+        syncAssetRenditions(resourceResolver, assetsAndExcludedRenditions);
+    }
+
+    @Override
+    public void syncAssetRenditions(final ResourceResolver resourceResolver, Map<String, Collection<String>> assetAndExcludedRenditions) {
+        if (assetAndExcludedRenditions == null || assetAndExcludedRenditions.isEmpty()) {
             return;
         }
 
@@ -153,7 +165,7 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
                 actionManager.deferredWithResolver(rr -> {
                     config.applyEventUserData(rr);
 
-                    syncAssetRenditionsWorker(rr, importOptions, assetPaths);
+                    syncAssetRenditionsWorker(rr, importOptions, assetAndExcludedRenditions);
                 });
             }
         } catch (LoginException e) {
@@ -161,50 +173,57 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
         }
 
         if (actionManager == null) {
-            syncAssetRenditionsWorker(resourceResolver, importOptions, assetPaths);
+            syncAssetRenditionsWorker(resourceResolver, importOptions, assetAndExcludedRenditions);
 
             try {
                 resourceResolver.commit();
             } catch (PersistenceException e) {
-                log.error("Could not save asset renditions sync changes for [ {} ] assets", assetPaths.length);
+                log.error("Could not save asset renditions sync changes for [ {} ] assets", assetAndExcludedRenditions.keySet().size());
             }
         }
     }
 
-    protected void syncAssetRenditionsWorker(final ResourceResolver resourceResolver, ImportOptions importOptions, final String... assetPaths) {
-        final RemotePackage remotePackage = new RemoteAssetRenditionsPackage(Arrays.asList(assetPaths), config.getEagerAssetRenditions());
+    protected void syncAssetRenditionsWorker(final ResourceResolver resourceResolver, ImportOptions importOptions, final Map<String, Collection<String>> assetsAndExcludedRenditions) {
+        final RemotePackage remotePackage = new RemoteAssetRenditionsPackage(assetsAndExcludedRenditions, config.getEagerAssetRenditions());
 
         try {
+            assetsAndExcludedRenditions.keySet().stream()
+                    .map(resourceResolver::getResource)
+                    .map(DamUtil::resolveToAsset)
+                    .forEach(asset -> {
+                        remoteAssetsRenditions.addSyncingRendition(asset);
+                    });
+
+            resourceResolver.commit();
+
             createRemotePackage(remotePackage);
             configureRemotePackage(remotePackage);
             buildRemotePackage(remotePackage);
             installLocalPackage(resourceResolver, importOptions, downloadRemotePackage(remotePackage));
             removeRemotePackage(remotePackage);
 
-            Arrays.stream(assetPaths)
-                    .map(resourceResolver::getResource)
-                    .forEach(r -> {
-                        RemoteAssets.setIsRemoteAsset(r, false);
-                        RemoteAssets.setIsRemoteSyncFailed(r, null);
-                    });
-
             resourceResolver.commit();
 
             if (importOptions.getListener() instanceof PathsTrackerListener) {
                 ((PathsTrackerListener) importOptions.getListener()).getPaths()
-                        .forEach(path -> syncStateManager.remove(path));
+                        .stream()
+                        .map(path -> resourceResolver.getResource(path))
+                        .forEach(r -> {
+                            RemoteAssets.setIsRemoteAsset(r, false);
+                            RemoteAssets.setIsRemoteSyncFailed(r, null);
+                            remoteAssetsRenditions.removeSyncingRendition(DamUtil.resolveToAsset(r));
+                            syncStateManager.remove(r.getPath());
+                        });
             }
 
-        } catch (RemoteAssetsSyncException | PersistenceException e) {
+        } catch (RemoteAssetsSyncException | PersistenceException | URISyntaxException e) {
             log.error("Error syncing remote asset renditions via package.", e);
         }
     }
 
-    private void createRemotePackage(final RemotePackage remotePackage) throws RemoteAssetsSyncException {
-
-        final String url = config.getServer() + "/crx/packmgr/service/exec.json";
+    private void createRemotePackage(final RemotePackage remotePackage) throws RemoteAssetsSyncException, URISyntaxException {
         final Executor executor = config.getRemoteAssetsHttpExecutor();
-        final Request request = Request.Post(url);
+        final Request request = Request.Post(config.getRemoteURI("/crx/packmgr/service/exec.json"));
 
         final List<NameValuePair> params = new ArrayList<>();
 
@@ -234,10 +253,9 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
         }
     }
 
-    private void configureRemotePackage(final RemotePackage remotePackage) throws RemoteAssetsSyncException {
-        final String url = config.getServer() + "/crx/packmgr/update.jsp";
+    private void configureRemotePackage(final RemotePackage remotePackage) throws RemoteAssetsSyncException, URISyntaxException {
         final Executor executor = config.getRemoteAssetsHttpExecutor();
-        final Request request = Request.Post(url);
+        final Request request = Request.Post(config.getRemoteURI("/crx/packmgr/update.jsp"));
 
         final HttpEntity params = MultipartEntityBuilder.create()
                 .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
@@ -268,10 +286,9 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
         }
     }
 
-    private void buildRemotePackage(RemotePackage remotePackage) throws RemoteAssetsSyncException {
+    private void buildRemotePackage(RemotePackage remotePackage) throws RemoteAssetsSyncException, URISyntaxException {
         final Executor executor = config.getRemoteAssetsHttpExecutor();
-        final String url = config.getServer() + "/crx/packmgr/service.jsp";
-        final Request request = Request.Post(url);
+        final Request request = Request.Post(config.getRemoteURI("/crx/packmgr/service.jsp"));
 
         final HttpEntity params = MultipartEntityBuilder.create()
                 .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
@@ -284,7 +301,7 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
 
         try {
             if (executor.execute(request).returnResponse().getStatusLine().getStatusCode() != 200) {
-                throw new RemoteAssetsSyncException(String.format("Could not build a remote package at [ %s ]", url));
+                throw new RemoteAssetsSyncException(String.format("Could not build a remote package at [ %s ]", request.toString()));
             }
             log.debug("Built the remote package on [ {}{} ]", config.getServer(), remotePackage.getPath());
         } catch (IOException e) {
@@ -292,10 +309,9 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
         }
     }
 
-    private InputStream downloadRemotePackage(RemotePackage remotePackage) throws RemoteAssetsSyncException {
+    private InputStream downloadRemotePackage(RemotePackage remotePackage) throws RemoteAssetsSyncException, URISyntaxException {
         final Executor executor = config.getRemoteAssetsHttpExecutor();
-        final String url = config.getServer() + "/crx/packmgr/service.jsp";
-        final Request request = Request.Post(url);
+        final Request request = Request.Post(config.getRemoteURI("/crx/packmgr/service.jsp"));
 
         final HttpEntity params = MultipartEntityBuilder.create()
                 .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
@@ -313,7 +329,7 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
                 log.debug("Downloaded the remote package on [ {}{} ]", config.getServer(), remotePackage.getPath());
                 return tmp;
             } else {
-                throw new RemoteAssetsSyncException(String.format("Could not build a remote package at [ %s ]", url));
+                throw new RemoteAssetsSyncException(String.format("Could not build a remote package at [ %s ]", request.toString()));
             }
         } catch (IOException e) {
             throw new RemoteAssetsSyncException(e);
@@ -342,10 +358,9 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
     }
 
 
-    private void removeRemotePackage(final RemotePackage remotePackage) throws RemoteAssetsSyncException {
+    private void removeRemotePackage(final RemotePackage remotePackage) throws RemoteAssetsSyncException, URISyntaxException {
         final Executor executor = config.getRemoteAssetsHttpExecutor();
-        final String url = config.getServer() + "/crx/packmgr/service.jsp";
-        final Request request = Request.Post(url);
+        final Request request = Request.Post(config.getRemoteURI("/crx/packmgr/service.jsp"));
 
         final HttpEntity params = MultipartEntityBuilder.create()
                 .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
@@ -356,7 +371,7 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
 
         try {
             if (executor.execute(request).returnResponse().getStatusLine().getStatusCode() != 200) {
-                throw new RemoteAssetsSyncException(String.format("Could not build a remote package at [ %s ]", url));
+                throw new RemoteAssetsSyncException(String.format("Could not build a remote package at [ %s ]", request.toString()));
             }
             log.debug("Cleaned-up the remote package on [ {}{} ]", config.getServer(), remotePackage.getPath());
         } catch (IOException e) {
@@ -373,11 +388,11 @@ public class RemotePackageSyncImpl implements RemoteAssetsSync, RemoteAssetsRend
                 .filter(Objects::nonNull)
                 .map(r -> r.getChild(JcrConstants.JCR_CONTENT))
                 .filter(Objects::nonNull)
-                .forEach(resource -> {
+                .forEach(assetJcrContentResource -> {
                     try {
-                        RemoteAssets.setIsRemoteAsset(resource, true);
+                        RemoteAssets.setIsRemoteAsset(assetJcrContentResource, true);
 
-                        assetPlaceholder.setOriginalRenditionPlaceholder(resource);
+                        remoteAssetsRenditions.setPlaceholderRenditions(DamUtil.resolveToAsset(assetJcrContentResource));
 
                         if (count.incrementAndGet() % config.getSaveInterval() == 0) {
                             resourceResolver.commit();

@@ -24,6 +24,9 @@ import org.apache.http.client.fluent.Executor;
 import org.apache.sling.api.resource.LoginException;
 import org.apache.sling.api.resource.ResourceResolver;
 
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Set;
 
@@ -99,4 +102,8 @@ public interface RemoteAssetsConfig {
 
     List<String> getEagerAssetRenditions();
     void applyEventUserData(ResourceResolver resourceResolver);
+
+    List<String> getLazyAssetRenditions();
+
+    URI getRemoteURI(String path) throws URISyntaxException;
 }
