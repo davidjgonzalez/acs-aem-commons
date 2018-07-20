@@ -1,0 +1,36 @@
+<!--/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~ ADOBE CONFIDENTIAL
+  ~  __________________
+  ~  Copyright 2017 Adobe Systems Incorporated
+  ~  All Rights Reserved.
+  ~
+  ~  NOTICE:  All information contained herein is, and remains
+  ~  the property of Adobe Systems Incorporated and its suppliers,
+  ~  if any.  The intellectual and technical concepts contained
+  ~  herein are proprietary to Adobe Systems Incorporated and its
+  ~  suppliers and are protected by trade secret or copyright law.
+  ~  Dissemination of this information or reproduction of this material
+  ~  is strictly forbidden unless prior written permission is obtained
+  ~  from Adobe Systems Incorporated.
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/-->
+
+<sly data-sly-use.configuration="com.adobe.cq.dtm.reactor.ui.Configuration">
+
+<coral-columnview-item class="foundation-collection-item" 
+    data-sly-attribute.variant="${configuration.hasChildren ? 'drilldown' : ''}" 
+    data-foundation-collection-item-id="${resource.path}">
+    <coral-columnview-item-thumbnail>
+        <coral-icon data-sly-test="${resource['jcr:primaryType'] != 'cq:Page'}" class="foundation-collection-item-thumbnail" icon="folder"></coral-icon>
+        <coral-icon data-sly-test="${resource['jcr:primaryType'] == 'cq:Page'}" class="foundation-collection-page-thumbnail" icon="launch"></coral-icon>
+    </coral-columnview-item-thumbnail>
+    <coral-columnview-item-content>
+        <div class="foundation-collection-item-title" itemprop="title" title="${configuration.title}">
+            ${configuration.title}
+        </div>
+    </coral-columnview-item-content>
+    <meta class="foundation-collection-quickactions" data-foundation-collection-quickactions-rel="${configuration.quickactionsRels.isEmpty ? 'none' : configuration.quickactionsRels @join=' '}">
+    <meta itemprop="lastmodified" content="${configuration.lastModifiedDate}">
+    <meta itemprop="lastmodifiedby" content="${configuration.lastModifiedBy}">
+</coral-columnview-item>
+
+</sly>
