@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.Map;
 
+/*
 @Component(
         immediate = true,
         service = Servlet.class,
@@ -44,6 +45,7 @@ import java.util.Map;
                 "sling.servlet.resourceTypes=cq:Page"
         }
 )
+*/
 public class PWAProxyServlet extends SlingSafeMethodsServlet implements OptingServlet {
     private static final Logger log = LoggerFactory.getLogger(PWAProxyServlet.class);
     @Reference
