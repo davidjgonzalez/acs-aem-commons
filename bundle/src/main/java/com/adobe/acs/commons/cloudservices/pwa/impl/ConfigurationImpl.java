@@ -11,6 +11,7 @@ import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.models.annotations.Model;
 import org.apache.sling.models.annotations.injectorspecific.OSGiService;
+import org.apache.sling.models.annotations.injectorspecific.ScriptVariable;
 import org.apache.sling.models.annotations.injectorspecific.Self;
 import org.apache.sling.models.annotations.injectorspecific.SlingObject;
 import org.apache.sling.settings.SlingSettingsService;
@@ -30,13 +31,16 @@ public class ConfigurationImpl implements Configuration {
     @Self
     private SlingHttpServletRequest request;
 
-
     @OSGiService
     private SlingSettingsService slingSettingsService;
 
-    // Do not use the @SlingObject for this since we want to get it from the Request so we can get the service RR.
+    @SlingObject
     private ResourceResolver resourceResolver;
+
+    @ScriptVariable
     private Page currentPage;
+
+    @ScriptVariable
     private PageManager pageManager;
 
     // These are resolved in init()
@@ -45,10 +49,6 @@ public class ConfigurationImpl implements Configuration {
 
     @PostConstruct
     protected void init() {
-        resourceResolver = request.getResourceResolver();
-        pageManager = resourceResolver.adaptTo(PageManager.class);
-        currentPage = pageManager.getContainingPage(request.getResource());
-
         Page page = currentPage;
 
         while (page != null) {
@@ -74,9 +74,7 @@ public class ConfigurationImpl implements Configuration {
 
     @Override
     public boolean isReady() {
-        return true;
-        // TODO Uncomment
-        //return slingSettingsService.getRunModes().contains("publish");
+        return slingSettingsService.getRunModes().contains("publish");
     }
 
     @Override

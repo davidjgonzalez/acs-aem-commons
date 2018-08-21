@@ -2,20 +2,18 @@ package com.adobe.acs.commons.cloudservices.pwa.impl;
 
 import com.adobe.acs.commons.wcm.datasources.DataSourceBuilder;
 import com.adobe.acs.commons.wcm.datasources.DataSourceOption;
+import com.adobe.granite.ui.clientlibs.ClientLibrary;
 import com.adobe.granite.ui.clientlibs.HtmlLibraryManager;
 import com.day.cq.commons.jcr.JcrConstants;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
-import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.api.servlets.HttpConstants;
 import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
 import org.osgi.service.component.annotations.Reference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.servlet.Servlet;
@@ -50,9 +48,10 @@ public class ClientLibraryCategoryDataSource extends SlingSafeMethodsServlet {
         final String[] types = properties.get(PN_TYPES, String[].class);
 
         final List<DataSourceOption> options = htmlLibraryManager.getLibraries().values().stream()
-                .filter(cl -> cl.allowProxy())
+                .filter(ClientLibrary::allowProxy)
                 .filter(cl -> cl.getTypes().stream().anyMatch(type -> ".js".equals(type.extension)))
                 .map(cl -> resolver.getResource(cl.getPath()))
+                .filter(Objects::nonNull)
                 .filter(r -> r.getValueMap().get(PN_TYPES, String[].class) != null)
                 .filter(r -> Arrays.stream(r.getValueMap().get(PN_TYPES, String[].class)).anyMatch(type -> ArrayUtils.contains(types, type)))
                 .filter(r -> r.getValueMap().get(JcrConstants.JCR_TITLE, String.class) != null)

@@ -35,35 +35,22 @@ import static com.adobe.acs.commons.cloudservices.pwa.impl.Constants.*;
 public class PwaServiceWorkerConfigServlet extends SlingSafeMethodsServlet {
     private static final Logger log = LoggerFactory.getLogger(PwaServiceWorkerConfigServlet.class);
 
-    private static final JsonElement NO_CACHE_CSRF = getNoCacheCSRF();
+    private static final JsonElement NO_CACHE_CSRF;
+    static {
+        NO_CACHE_CSRF = new JsonPrimitive("(.*)/libs/granite/csrf/token.json(\\?.*)?");
+    }
 
     @Reference
     private ModelFactory modelFactory;
-
-    @Reference
-    private ResourceResolverFactory resourceResolverFactory;
 
     @Override
     protected final void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response) throws ServletException, IOException {
         response.setContentType("application/json;charset=UTF-8");
         response.setCharacterEncoding("UTF-8");
-
-        ResourceResolver serviceResourceResolver = null;
-        try {
-            serviceResourceResolver = resourceResolverFactory.getServiceResourceResolver(AUTH_INFO);
-
-            response.getWriter().write(getConfig(new ServiceUserRequest(request, serviceResourceResolver)).toString());
-        } catch (LoginException e) {
-            log.error("Could not obtain service user [ {} ]", SERVICE_NAME, e);
-            response.sendError(SlingHttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        } finally {
-            if (serviceResourceResolver != null) {
-                serviceResourceResolver.close();
-            }
-        }
+        response.getWriter().write(getConfig(request).toString());
     }
 
-    private JsonObject getConfig(SlingHttpServletRequest request) throws ServletException {
+    private JsonObject getConfig(SlingHttpServletRequest request) {
         final Configuration configuration = modelFactory.createModel(request, Configuration.class);
         final ValueMap properties = configuration.getProperties();
         final JsonObject json = new JsonObject();
@@ -141,9 +128,5 @@ public class PwaServiceWorkerConfigServlet extends SlingSafeMethodsServlet {
 
         }
         return jsons;
-    }
-
-    private static JsonElement getNoCacheCSRF() {
-        return new JsonPrimitive("(.*)/libs/granite/csrf/token.json(\\?.*)?");
     }
 }
