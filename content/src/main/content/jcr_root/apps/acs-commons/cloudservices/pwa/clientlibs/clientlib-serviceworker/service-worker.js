@@ -1,6 +1,5 @@
-/* Global state */
 var config = {
-    cache_name: 'pwa__uninitialized-v0',
+    cache_name: 'aem-pwa__uninitialized-v0',
     version: 0
 };
 
@@ -20,7 +19,6 @@ function isCacheable(request) {
     (config.no_cache || []).forEach(function (pattern) {
         if (cacheable && request.url.match(pattern)) {
             cacheable = false;
-            //console.log("Unable to cache [ " + request.url + " ] due to pattern [ " + pattern + " ]");
         }
     });
 
@@ -72,11 +70,13 @@ self.addEventListener('install', function (e) {
                     return entry.path;
                 }).concat(config.pre_cache);
 
+                console.log(urlsToCache);
                 return cache.addAll(urlsToCache);
             });
         })
     );
 });
+
 
 self.addEventListener('fetch', function (event) {
     if (!isCacheable(event.request)) {

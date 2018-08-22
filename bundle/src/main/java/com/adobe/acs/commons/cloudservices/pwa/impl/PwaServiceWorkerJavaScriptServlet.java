@@ -39,7 +39,7 @@ public class PwaServiceWorkerJavaScriptServlet extends SlingSafeMethodsServlet {
     private ModelFactory modelFactory;
 
     @Override
-    protected final void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response) {
+    protected final void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException {
 
         response.setContentType("application/javascript");
         response.setHeader("Content-Disposition", "attachment");
@@ -48,7 +48,7 @@ public class PwaServiceWorkerJavaScriptServlet extends SlingSafeMethodsServlet {
         writeJavaScript(request, response);
     }
 
-    private void writeJavaScript(SlingHttpServletRequest request, SlingHttpServletResponse response) {
+    private void writeJavaScript(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException {
         final Configuration configuration = modelFactory.createModel(request, Configuration.class);
 
         final Collection<ClientLibrary> htmlLibraries =
@@ -56,6 +56,9 @@ public class PwaServiceWorkerJavaScriptServlet extends SlingSafeMethodsServlet {
                         LibraryType.JS, true, false);
 
         if (htmlLibraries.size() > 0) {
+            /** This will force the Service Worker to re-load when the Conf has changed **/
+            response.getWriter().println("/* Last modified: " + String.valueOf(configuration.getLastModified().getTimeInMillis()) + "*/");
+
             htmlLibraries.stream()
                     .map(hl -> htmlLibraryManager.getLibrary(LibraryType.JS, hl.getPath()))
                     .filter(Objects::nonNull)

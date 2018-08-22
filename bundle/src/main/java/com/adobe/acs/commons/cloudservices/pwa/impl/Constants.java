@@ -21,7 +21,7 @@ public class Constants {
     public static final String HTML_EXTENSION = ".html";
 
     /***
-     *  Manifest
+     *  Manifest Configuration
      ***/
 
     /** Node Names **/
@@ -36,7 +36,7 @@ public class Constants {
     public static final String PN_DISPLAY = "display";
     public static final String PN_VERSION = "version";
     public static final String PN_ICON_PATH = "fileReference";
-    public static final String PN_ICON_SIZE = "size";
+    public static final String PN_ICON_SIZES = "sizes";
 
     /** JSON Keys **/
     public static final String KEY_NAME = "name";
@@ -52,9 +52,8 @@ public class Constants {
     public static final String KEY_ICON_TYPE = "type";
     public static final String KEY_LANGUAGE = "lang";
 
-
     /***
-     *  Service Worker Configuration
+     * Service Worker Configuration
      ***/
 
     /** Node Names **/
@@ -64,9 +63,12 @@ public class Constants {
 
     /** Property Names **/
     public static final String PN_PATH = "path";
-    public static final String PN_PATTERN = "pattern";
+    public static final String PN_FALLBACK_PATH = "fallbackPath";
+    public static final String PN_VALUE = "value";
+    public static final String PN_TYPE = "type";
 
     /** JSON Keys **/
+    public static final String KEY_LAST_MODIFIED = "last_modified";
     public static final String KEY_CACHE_NAME = "cache_name";
     public static final String KEY_VERSION = "version";
     public static final String KEY_FALLBACK = "fallback";
@@ -75,5 +77,7 @@ public class Constants {
     public static final String KEY_PATTERN = "pattern";
     public static final String KEY_PATH = "path";
 
-
+    public static final String VALUE_PATTERN_CONTAINS = "contains";
+    public static final String VALUE_PATTERN_STARTS_WITH = "starts";
+    public static final String VALUE_PATTERN_ENDS_WITH = "ends";
 }

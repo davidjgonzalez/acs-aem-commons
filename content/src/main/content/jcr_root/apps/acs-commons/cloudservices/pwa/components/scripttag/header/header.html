@@ -3,8 +3,8 @@
      data-sly-test.path="${configuration.scopePath}">
     <link rel="manifest" href="${path}.pwa.manifest.json" type="application/manifest+json" crossOrigin="use-credentials">
     <meta name="pwa.root" value="${path}">
-</sly>
-
-<sly data-sly-test="${!ready && path}">
-    <!-- PWA head includes disabled on AEM Author. These will only be added on AEM Publish. -->
+    <!--/* Include Clientlibs in the head else initial load is not cached by SW */-->
+    <sly data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"
+         data-sly-call="${clientlib.js @ categories=configuration.pwaJsCategories}"/>
+    </sly>
 </sly>

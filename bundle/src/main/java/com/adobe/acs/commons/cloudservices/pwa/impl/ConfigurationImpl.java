@@ -1,7 +1,6 @@
 package com.adobe.acs.commons.cloudservices.pwa.impl;
 
 import com.adobe.acs.commons.cloudservices.pwa.Configuration;
-import com.day.cq.commons.jcr.JcrConstants;
 import com.day.cq.wcm.api.Page;
 import com.day.cq.wcm.api.PageManager;
 import org.apache.commons.lang3.StringUtils;
@@ -11,20 +10,20 @@ import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
 import org.apache.sling.models.annotations.Model;
 import org.apache.sling.models.annotations.injectorspecific.OSGiService;
-import org.apache.sling.models.annotations.injectorspecific.ScriptVariable;
 import org.apache.sling.models.annotations.injectorspecific.Self;
-import org.apache.sling.models.annotations.injectorspecific.SlingObject;
 import org.apache.sling.settings.SlingSettingsService;
 
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 @Model(
         adaptables = {SlingHttpServletRequest.class},
         adapters = {Configuration.class}
 )
 public class ConfigurationImpl implements Configuration {
-    private static final String RESOURCE_TYPE = "acs-commons/cloudservices/pwa/components/conf/page";
+    //private static final String RESOURCE_TYPE = "acs-commons/cloudservices/pwa/components/conf/page";
     private static final String PN_SERVICE_WORKER_JS_CLIENT_LIBRARY_CATEGORY = "serviceWorkerJsClientLibraryCategory";
     private static final String PN_PWA_JS_CLIENT_LIBRARY_CATEGORY = "pwaJsClientLibraryCategory";
 
@@ -34,29 +33,34 @@ public class ConfigurationImpl implements Configuration {
     @OSGiService
     private SlingSettingsService slingSettingsService;
 
-    @SlingObject
-    private ResourceResolver resourceResolver;
-
-    @ScriptVariable
-    private Page currentPage;
-
-    @ScriptVariable
-    private PageManager pageManager;
-
     // These are resolved in init()
+    private ResourceResolver resourceResolver;
     private Page rootPage;
     private Page confPage;
 
     @PostConstruct
     protected void init() {
+        resourceResolver = request.getResourceResolver();
+
+        final PageManager pageManager = resourceResolver.adaptTo(PageManager.class);
+        final Page currentPage = pageManager.getContainingPage(request.getResource());
+
         Page page = currentPage;
 
         while (page != null) {
             final String confPath = page.getProperties().get("cq:conf", String.class);
 
             if (StringUtils.isNotBlank(confPath)) {
-                Resource cloudConfigsResource = resourceResolver.getResource(confPath + "/settings/cloudconfigs");
-                if (cloudConfigsResource != null) {
+                final Resource jcrContentResource = resourceResolver.getResource(confPath + "/settings/cloudconfigs/pwa/jcr:content");
+
+                if (jcrContentResource != null) {
+                    confPage = pageManager.getContainingPage(jcrContentResource);
+                    rootPage = page;
+                    return;
+                }
+
+
+                /*if (cloudConfigsResource != null) {
                     for (final Resource cloudConfigResource : cloudConfigsResource.getChildren()) {
                         Resource jcrContentResource = cloudConfigResource.getChild(JcrConstants.JCR_CONTENT);
                         if (jcrContentResource != null && jcrContentResource.isResourceType(RESOURCE_TYPE)) {
@@ -65,7 +69,7 @@ public class ConfigurationImpl implements Configuration {
                             return;
                         }
                     }
-                }
+                }*/
             }
 
             page = page.getParent();
@@ -112,6 +116,17 @@ public class ConfigurationImpl implements Configuration {
         return null;
     }
 
+    @Override
+    public Calendar getLastModified() {
+        if (confPage.getLastModified() != null) {
+            return confPage.getLastModified();
+        }
+
+        return GregorianCalendar.getInstance();
+    }
+
+    @Override
+    @Nullable
     public Page getConfPage() {
         return confPage;
     }
