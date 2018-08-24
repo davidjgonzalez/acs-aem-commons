@@ -57,7 +57,8 @@ public class PwaServiceWorkerJavaScriptServlet extends SlingSafeMethodsServlet {
 
         if (htmlLibraries.size() > 0) {
             /** This will force the Service Worker to re-load when the Conf has changed **/
-            response.getWriter().println("/* Last modified: " + String.valueOf(configuration.getLastModified().getTimeInMillis()) + "*/");
+            // TODO better way to do this? Previously uses JS comment to break file hash, however that is removed during minification.
+            response.getWriter().println("var acs_commons_pwa_config_last_modified = " + String.valueOf(configuration.getLastModified().getTimeInMillis()) + ";");
 
             htmlLibraries.stream()
                     .map(hl -> htmlLibraryManager.getLibrary(LibraryType.JS, hl.getPath()))
