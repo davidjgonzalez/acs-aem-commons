@@ -68,7 +68,7 @@ public class PwaManifestServlet extends SlingSafeMethodsServlet {
                 manifest.get(PN_NAME,
                         "AEM Progressive Web App"));
 
-        json.addProperty(KEY_SHORT_NAME,
+      json.addProperty(KEY_SHORT_NAME,
                 manifest.get(PN_SHORT_NAME, "AEM PWA"));
 
 
