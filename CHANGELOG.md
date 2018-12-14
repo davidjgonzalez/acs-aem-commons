@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com)
 ### Added
 - Add oakpal-maven-plugin and oakpal-checks module, using the acs-internal checklist for acs-aem-commons-content acceptance tests, and export the acs-commons-integrators checklist for downstream compatibility checks.
 - #1564 - Added SFTP support for asset ingest utilities
+- #1612 - Retries count and retry pause is configurable for all Asset Ingestors
 
 ### Fixed
 - #1607 - HttpCache: improved the write to response mechanism.
@@ -36,6 +37,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com)
 - #1573 - Tag Creator - automatic detection/support of /etc/tags or /content/cq:tags root paths
 - #1578 - Asset import needs additional configuration inputs
 - #1619 - Implemented dependency checking, updating Guava and jjwt to latest versions.
+
 
 ## [3.19.0] - 2018-11-03
 
