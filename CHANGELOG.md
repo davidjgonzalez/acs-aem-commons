@@ -10,9 +10,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com)
 ### Added
 - Add oakpal-maven-plugin and oakpal-checks module, using the acs-internal checklist for acs-aem-commons-content acceptance tests, and export the acs-commons-integrators checklist for downstream compatibility checks.
 - #1564 - Added SFTP support for asset ingest utilities
+- #1611 - HttpCache: Added custom expiry time per cache configuration (not supported by standard mem-store), caffeine cache store
 - #1612 - Retries count and retry pause is configurable for all Asset Ingestors
 - #1637 - Add support for bounce address setting in EmailService
-
 - #1648 - Add Smart Tags to XMP Metadata Node Workflow Process
 
 ### Fixed
@@ -42,8 +42,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com)
 - #1571 - Remove separate twitter bundle and use exception trapping to only register AdapterFactory when Twitter4J is available.
 - #1573 - Tag Creator - automatic detection/support of /etc/tags or /content/cq:tags root paths
 - #1578 - Asset import needs additional configuration inputs
-- #1619 - Implemented dependency checking, updating Guava and jjwt to latest versions.
-
+- #1649 - Added support for custom Content-Type header.
 
 ### Removed
 - #1635 - Removed WCM Inbox Web Console Plugin
