@@ -42,6 +42,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com)
 - #1619 - Implemented dependency checking, updating Guava and jjwt to latest versions.
 
 
+### Removed
+- #1635 - Removed WCM Inbox Web Console Plugin
+
 ## [3.19.0] - 2018-11-03
 
 ### Added
