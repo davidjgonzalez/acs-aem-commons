@@ -20,15 +20,8 @@
 package com.adobe.acs.commons.logging.impl;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import org.apache.felix.scr.annotations.Activate;
-import org.apache.felix.scr.annotations.Component;
-import org.apache.felix.scr.annotations.ConfigurationPolicy;
-import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Properties;
-import org.apache.felix.scr.annotations.Property;
-import org.apache.felix.scr.annotations.PropertyOption;
-import org.apache.felix.scr.annotations.PropertyUnbounded;
+import org.apache.felix.scr.annotations.*;
 import org.apache.jackrabbit.util.ISO8601;
 import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.osgi.framework.ServiceRegistration;
@@ -39,14 +32,7 @@ import org.osgi.service.event.EventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.Date;
-import java.util.Dictionary;
-import java.util.Hashtable;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Logs OSGi Events for any set of topics to an SLF4j Logger Category, as JSON
@@ -177,7 +163,6 @@ public class JsonEventLogger implements EventHandler {
      *
      * @param event the event to be serialized as
      * @return a serialized JSON object
-     * @throws org.apache.sling.commons.json.JSONException
      */
     protected static String constructMessage(Event event) {
         Map<String, Object> eventProperties = new LinkedHashMap<>();
