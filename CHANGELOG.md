@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com)
 - #1612 - Retries count and retry pause is configurable for all Asset Ingestors
 - #1637 - Add support for bounce address setting in EmailService
 - #1648 - Add Smart Tags to XMP Metadata Node Workflow Process
+- #1686 - Added CloseableQueryBuilder service to deal with CQ QueryBuilder's shallow unclosed ResourceResolvers.
 
 ### Fixed
 - #1607 - HttpCache: improved the write to response mechanism.
