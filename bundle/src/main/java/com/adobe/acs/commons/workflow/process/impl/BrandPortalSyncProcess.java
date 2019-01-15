@@ -63,68 +63,67 @@ import java.util.List;
 public class BrandPortalSyncProcess implements WorkflowProcess {
     private static final Logger log = LoggerFactory.getLogger(BrandPortalSyncProcess.class);
 
-    @Reference
-    private WorkflowHelper workflowHelper;
+   @Reference
+   private WorkflowHelper workflowHelper;
 
-    @Reference
-    private WorkflowPackageManager workflowPackageManager;
+   @Reference
+   private WorkflowPackageManager workflowPackageManager;
 
-    @Reference
-    private ResourceResolverFactory resourceResolverFactory;
+   @Reference
+   private ResourceResolverFactory resourceResolverFactory;
 
-    @Reference
-    private DAMSyncService damSyncService;
+   @Reference
+   private DAMSyncService damSyncService;
 
-    public final void execute(WorkItem workItem, WorkflowSession workflowSession, MetaDataMap metaDataMap) throws WorkflowException {
-        ResourceResolver resourceResolver = null;
-        final List<String> assetPaths = new ArrayList<String>();
+   public final void execute(WorkItem workItem, WorkflowSession workflowSession, MetaDataMap metaDataMap)
+         throws WorkflowException {
+      final List<String> assetPaths = new ArrayList<String>();
 
-        final ReplicationActionType replicationActionType = getReplicationActionType(metaDataMap);
+      final ReplicationActionType replicationActionType = getReplicationActionType(metaDataMap);
 
-        try {
-            resourceResolver = workflowHelper.getResourceResolver(workflowSession);
+      try (ResourceResolver resourceResolver = workflowHelper.getResourceResolver(workflowSession)) {
 
-            final List<String> payloads = workflowPackageManager.getPaths(resourceResolver, (String) workItem.getWorkflowData().getPayload());
+         final List<String> payloads = workflowPackageManager.getPaths(resourceResolver,
+               (String) workItem.getWorkflowData().getPayload());
 
-            for (final String payload : payloads) {
-                // Convert the payloads to Assets, in preparation for Brand Portal publication
-                // Note that this only supports Assets as payloads and NOT Asset Folders
-                final Asset asset = DamUtil.resolveToAsset(resourceResolver.getResource(payload));
+         for (final String payload : payloads) {
+            // Convert the payloads to Assets, in preparation for Brand Portal publication
+            // Note that this only supports Assets as payloads and NOT Asset Folders
+            final Asset asset = DamUtil.resolveToAsset(resourceResolver.getResource(payload));
 
-                if (asset == null) {
-                    log.debug("Payload path [ {} ] does not resolve to an asset", payload);
-                } else {
-                    assetPaths.add(asset.getPath());
-                }
-            }
-
-            // Based on the WF Process activation/deactivation directive; leverage the DamSyncService to publish the the Asset
-            if (ReplicationActionType.ACTIVATE.equals(replicationActionType)) {
-                damSyncService.publishResourcesToMP(assetPaths, resourceResolver);
-            } else if (ReplicationActionType.DEACTIVATE.equals(replicationActionType)) {
-                damSyncService.unpublishResourcesFromMP(assetPaths, resourceResolver);
+            if (asset == null) {
+               log.debug("Payload path [ {} ] does not resolve to an asset", payload);
             } else {
-                log.warn("Unknown replication action type [ {} ] for AEM Assets Brand Portal Sync", replicationActionType);
+               assetPaths.add(asset.getPath());
             }
-        } catch (RepositoryException e) {
-            log.error("Could not find the payload", e);
-            throw new WorkflowException("Could not find the payload");
-        } finally {
-            if (resourceResolver != null) {
-                resourceResolver.close();
-            }
-        }
-    }
+         }
 
-    protected final ReplicationActionType getReplicationActionType(MetaDataMap metaDataMap) {
-        final String processArgs = StringUtils.trim(metaDataMap.get("PROCESS_ARGS", ReplicationActionType.ACTIVATE.getName()));
+         // Based on the WF Process activation/deactivation directive; leverage the
+         // DamSyncService to publish the the Asset
+         if (ReplicationActionType.ACTIVATE.equals(replicationActionType)) {
+            damSyncService.publishResourcesToMP(assetPaths, resourceResolver);
+         } else if (ReplicationActionType.DEACTIVATE.equals(replicationActionType)) {
+            damSyncService.unpublishResourcesFromMP(assetPaths, resourceResolver);
+         } else {
+            log.warn("Unknown replication action type [ {} ] for AEM Assets Brand Portal Sync",
+                  replicationActionType);
+         }
+      } catch (RepositoryException e) {
+         log.error("Could not find the payload", e);
+         throw new WorkflowException("Could not find the payload");
+      }
+   }
 
-        if (StringUtils.equalsIgnoreCase(processArgs, ReplicationActionType.ACTIVATE.getName())) {
-           return ReplicationActionType.ACTIVATE;
-        } else if (StringUtils.equalsIgnoreCase(processArgs, ReplicationActionType.DEACTIVATE.getName())) {
-            return ReplicationActionType.DEACTIVATE;
-        }
+   protected final ReplicationActionType getReplicationActionType(MetaDataMap metaDataMap) {
+      final String processArgs = StringUtils
+            .trim(metaDataMap.get("PROCESS_ARGS", ReplicationActionType.ACTIVATE.getName()));
 
-        return null;
-    }
+      if (StringUtils.equalsIgnoreCase(processArgs, ReplicationActionType.ACTIVATE.getName())) {
+         return ReplicationActionType.ACTIVATE;
+      } else if (StringUtils.equalsIgnoreCase(processArgs, ReplicationActionType.DEACTIVATE.getName())) {
+         return ReplicationActionType.DEACTIVATE;
+      }
+
+      return null;
+   }
 }
