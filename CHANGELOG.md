@@ -19,7 +19,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com)
 - #1700 - MCP Forms framework now tracks client libraries required for components as needed
 
 ### Fixed
-- #1607 - HttpCache: improved the write to response mechanism.
 - #1590 - Multifield component doesn't render non-composite at all (NPE error)
 - #1588 - Updated error handler JSP to use ModeUtils
 - #1583 - Asset Ingestor may try to create asset folders when they already exist
@@ -35,6 +34,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com)
 - #1597 - If 'Preserve Filename' unchecked, asset name will support only the following characters: letters, digits, hyphens, underscores, another chars will be replaced with hyphens
 - #1604 - File asset import and url asset imports saves source path as migratedFrom property into assets jcr:content node. If asset is skipped the message in the format "source -> destination" is written into report
 - #1606 - Url Asset Import saves correct path into migratedFrom property of assets's jcr:content node
+- #1607 - HttpCache: improved the write to response mechanism.
 - #1610 - Bulk Workflow Manager doing nothing
 - #1613 - Potential NPE in JcrPackageReplicationStatusEventHandler
 - #1623 - Fix timing-related test failures in HealthCheckStatusEmailerTest
@@ -44,7 +44,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com)
 - #1682 - Enable secure XML processing
 - #1684 - Useing Autocloseable when closing resourceresolvers
 - #1694 - Switch S3AssetIngestorTest and FileAssetIngestorTest back to JCR_OAK to avoid UnsupportedOperationException on MockSession.refresh().
-- #1699 | MCP UI doesn't work because of StackOverflowError exception
+- #1699 - Updated MCP servlet to not serialize known types that would otherwise cause problems
+- #1724 - AemEnvironmentIndicatorFilterTest.testDisallowedWcmMode is failed because of caret in windows
 
 ### Changed
 - #1571 - Remove separate twitter bundle and use exception trapping to only register AdapterFactory when Twitter4J is available.
