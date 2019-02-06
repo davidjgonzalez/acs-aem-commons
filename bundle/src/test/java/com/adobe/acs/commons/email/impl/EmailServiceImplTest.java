@@ -20,7 +20,6 @@
 package com.adobe.acs.commons.email.impl;
 
 import com.adobe.acs.commons.email.EmailService;
-import com.day.cq.commons.mail.MailTemplate;
 import com.day.cq.mailer.MessageGateway;
 import com.day.cq.mailer.MessageGatewayService;
 import junitx.util.PrivateAccessor;
@@ -28,32 +27,19 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.mail.ByteArrayDataSource;
 import org.apache.commons.mail.HtmlEmail;
 import org.apache.commons.mail.SimpleEmail;
-import org.apache.sling.api.resource.ResourceResolver;
-import org.apache.sling.api.resource.ResourceResolverFactory;
 import org.apache.sling.testing.mock.sling.ResourceResolverType;
 import org.apache.sling.testing.mock.sling.junit.SlingContext;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Matchers;
 import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 import org.mockito.runners.MockitoJUnitRunner;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 import javax.activation.DataSource;
-import javax.jcr.Session;
 import javax.mail.internet.MimeMultipart;
-import java.io.File;
-import java.io.FileInputStream;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
@@ -84,23 +70,22 @@ public class EmailServiceImplTest {
     @Rule
     public SlingContext context = new SlingContext(ResourceResolverType.JCR_MOCK);
 
-    private static final String emailTemplatePath = "/emailTemplate.txt";
-    private static final String EMAIL_TEMPLATE = "emailTemplate.txt";
+    private static final String EMAIL_TEMPLATE_JCR_RESOURCE_PATH = "/emailTemplate.txt";
+    private static final String EMAIL_TEMPLATE_JAVA_RESOURCE_PATH = "/emailTemplate.txt";
 
-    private static final String emailTemplateAttachmentPath = "/emailTemplateAttachment.html";
-    private static final String EMAIL_TEMPLATE_ATTACHMENT = "emailTemplateAttachment.html";
+    private static final String EMAIL_TEMPLAYE_JCR_RESOURCE_PATH = "/emailTemplateAttachment.html";
+    private static final String EMAIL_TEMPLATE_ATTACHMENT_JAVA_RESOURCE_PATH = "/emailTemplateAttachment.html";
 
     @Before
     public final void setUp() {
-        context.load().binaryFile(this.getClass().getResourceAsStream(EMAIL_TEMPLATE),emailTemplatePath);
-        context.load().binaryFile(this.getClass().getResourceAsStream(EMAIL_TEMPLATE_ATTACHMENT), emailTemplateAttachmentPath);
+        context.load().binaryFile(this.getClass().getResourceAsStream(EMAIL_TEMPLATE_JAVA_RESOURCE_PATH), EMAIL_TEMPLATE_JCR_RESOURCE_PATH);
+        context.load().binaryFile(this.getClass().getResourceAsStream(EMAIL_TEMPLATE_ATTACHMENT_JAVA_RESOURCE_PATH), EMAIL_TEMPLAYE_JCR_RESOURCE_PATH);
 
         when(messageGatewayService.getGateway(SimpleEmail.class)).thenReturn(messageGatewaySimpleEmail);
         when(messageGatewayService.getGateway(HtmlEmail.class)).thenReturn(messageGatewayHtmlEmail);
         
         context.registerService(MessageGatewayService.class, messageGatewayService);
         context.registerInjectActivateService(emailService);
-
     }
 
 
@@ -124,7 +109,7 @@ public class EmailServiceImplTest {
                                                  };
         ArgumentCaptor<SimpleEmail> captor = ArgumentCaptor.forClass(SimpleEmail.class);
 
-        final List<String> failureList = emailService.sendEmail(emailTemplatePath, params, recipients);
+        final List<String> failureList = emailService.sendEmail(EMAIL_TEMPLATE_JCR_RESOURCE_PATH, params, recipients);
 
         verify(messageGatewaySimpleEmail, times(recipients.length)).send(captor.capture());
 
@@ -158,7 +143,7 @@ public class EmailServiceImplTest {
 
         ArgumentCaptor<SimpleEmail> captor = ArgumentCaptor.forClass(SimpleEmail.class);
 
-        final List<String> failureList = emailService.sendEmail(emailTemplatePath, params, recipient);
+        final List<String> failureList = emailService.sendEmail(EMAIL_TEMPLATE_JCR_RESOURCE_PATH, params, recipient);
 
         verify(messageGatewaySimpleEmail, times(1)).send(captor.capture());
 
@@ -194,7 +179,7 @@ public class EmailServiceImplTest {
 
         ArgumentCaptor<HtmlEmail> captor = ArgumentCaptor.forClass(HtmlEmail.class);
 
-        final List<String> failureList = emailService.sendEmail(emailTemplateAttachmentPath, params, attachments, recipient);
+        final List<String> failureList = emailService.sendEmail(EMAIL_TEMPLAYE_JCR_RESOURCE_PATH, params, attachments, recipient);
 
         verify(messageGatewayHtmlEmail, times(1)).send(captor.capture());
 
@@ -214,7 +199,7 @@ public class EmailServiceImplTest {
 
     @Test
     public final void testSendEmailNoRecipients() {
-        final String templatePath = emailTemplatePath;
+        final String templatePath = EMAIL_TEMPLATE_JCR_RESOURCE_PATH;
         final Map<String, String> params = new HashMap<String, String>();
         final String[] recipients = new String[] {};
 
@@ -274,7 +259,7 @@ public class EmailServiceImplTest {
 
         ArgumentCaptor<SimpleEmail> captor = ArgumentCaptor.forClass(SimpleEmail.class);
 
-        List<String> failureList = emailService.sendEmail(emailTemplatePath, params, recipient);
+        List<String> failureList = emailService.sendEmail(EMAIL_TEMPLATE_JCR_RESOURCE_PATH, params, recipient);
 
         verify(messageGatewaySimpleEmail, times(1)).send(captor.capture());
 
@@ -292,7 +277,7 @@ public class EmailServiceImplTest {
 
         ArgumentCaptor<SimpleEmail> captor = ArgumentCaptor.forClass(SimpleEmail.class);
 
-        emailService.sendEmail(emailTemplatePath, params, recipient);
+        emailService.sendEmail(EMAIL_TEMPLATE_JCR_RESOURCE_PATH, params, recipient);
         verify(messageGatewaySimpleEmail, times(1)).send(captor.capture());
 
         assertEquals(expectedSubject, captor.getValue().getSubject());
@@ -309,7 +294,7 @@ public class EmailServiceImplTest {
 
         ArgumentCaptor<SimpleEmail> captor = ArgumentCaptor.forClass(SimpleEmail.class);
 
-        emailService.sendEmail(emailTemplatePath, params, recipient);
+        emailService.sendEmail(EMAIL_TEMPLATE_JCR_RESOURCE_PATH, params, recipient);
         verify(messageGatewaySimpleEmail, times(1)).send(captor.capture());
 
         // getter isn't available until 1.4. See https://issues.apache.org/jira/browse/EMAIL-146

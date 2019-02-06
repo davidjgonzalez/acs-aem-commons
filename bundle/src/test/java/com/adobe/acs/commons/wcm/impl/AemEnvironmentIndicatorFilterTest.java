@@ -70,8 +70,7 @@ public class AemEnvironmentIndicatorFilterTest {
     
     public AemEnvironmentIndicatorFilter filter;
     
-    public Map<String,Object> props = new HashMap<>();
-    
+    public Map<String,String> props = new HashMap<>();
     
     @Before
     public void setup() {
@@ -80,11 +79,10 @@ public class AemEnvironmentIndicatorFilterTest {
         
         context.registerService(XSSAPI.class,xss);
         
-        props.put("css.color", "blue");
-        props.put("browser.title.prefix", "prefix");
+        props.put("css-color", "blue");
+        props.put("browser-title-prefix", "prefix");
     }
-    
-    
+
     @Test
     public void noHttpRequests() throws IOException, ServletException {
         ServletRequest req = mock(ServletRequest.class);
@@ -126,28 +124,33 @@ public class AemEnvironmentIndicatorFilterTest {
     
     @Test
     public void testDisallowedWcmMode() throws IOException, ServletException {
-        props.put("excluded.wcmmodes","edit");
+        props.put("excluded-wcm-modes","edit");
         context.registerInjectActivateService(filter,props);
         context.request().setMethod("GET");  
         context.response().setContentType("text/html");
-        WCMMode.EDIT.toRequest(context.request());        
+        WCMMode.EDIT.toRequest(context.request());
+
         doAnswer((Answer) invocation -> {
             HttpServletResponse response = (HttpServletResponse) invocation.getArguments()[1];
             response.getWriter().println("<html><body>somebody</body></html>");
             return null;
         }).when(chain).doFilter(anyObject(),anyObject());
+
         filter.doFilter(context.request(), context.response(), chain);
+
         String response = context.response().getOutputAsString();
         assertEquals(String.format("%s%n", "<html><body>somebody</body></html>"),response);
     }
     
     @Test
-    public void testAllowedWcmMode() throws IOException, ServletException {
-        props.put("excluded.wcmmodes","edit");
+    public void testAllowedWcmMode_Mismatch() throws IOException, ServletException {
+        props.put("excluded-wcm-modes", "edit");
         context.registerInjectActivateService(filter,props);
         context.request().setMethod("GET");  
         context.response().setContentType("text/html");
-        WCMMode.PREVIEW.toRequest(context.request()); 
+
+        WCMMode.PREVIEW.toRequest(context.request());
+
         doAnswer((Answer) invocation -> {
             HttpServletResponse response = (HttpServletResponse) invocation.getArguments()[1];
             response.getWriter().println("<html><body>somebody</body></html>");
@@ -155,13 +158,16 @@ public class AemEnvironmentIndicatorFilterTest {
         }).when(chain).doFilter(anyObject(),anyObject());
         filter.doFilter(context.request(), context.response(), chain);
         String response = context.response().getOutputAsString();
+
         assertTrue(response.startsWith("<html><body>somebody<style>#acs-commons-env-indicator"));
         assertTrue(response.contains("background-color:blue"));
     }
-    
-    
-    
-    
+
+
+
+
+
+
     @Test
     public void testAcceptForMethod() {
         context.registerInjectActivateService(filter,props);
@@ -184,8 +190,9 @@ public class AemEnvironmentIndicatorFilterTest {
     @Test
     public void testAcceptForReferrers() {
         context.build().resource("/resource", ImmutableMap.of("jcr:title","title")).commit();
-        Resource resource = context.resourceResolver().getResource("/resource");
-        context.registerInjectActivateService(filter,props);
+        //Resource resource = context.resourceResolver().getResource("/resource");
+
+        context.registerInjectActivateService(filter, props);
         context.request().setMethod("GET");
         context.request().setServletPath("/resource");
         

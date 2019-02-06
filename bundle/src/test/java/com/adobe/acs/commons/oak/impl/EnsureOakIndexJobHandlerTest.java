@@ -54,7 +54,6 @@ import com.adobe.acs.commons.analysis.jcrchecksum.impl.ChecksumGeneratorImpl;
 @RunWith(MockitoJUnitRunner.class)
 @PrepareForTest({EnsureOakIndexJobHandler.class, LoggerFactory.class})
 public class EnsureOakIndexJobHandlerTest {
-
     
     /**
      * It's required to use JCR_OAK here, although it's not really necessary from a 
@@ -92,8 +91,8 @@ public class EnsureOakIndexJobHandlerTest {
         
         // setup dependencies
         Map<String,Object> props = new HashMap<>();
-        props.put("oak.indexes.path", OAK_INDEX);
-        props.put("ensure.definitions.path",DEFINITION_PATH);
+        props.put("oak-indexes.path", OAK_INDEX);
+        props.put("ensure-definitions.path",DEFINITION_PATH);
         props.put("immediate", "false");
         
         context.registerService(Scheduler.class,scheduler);
