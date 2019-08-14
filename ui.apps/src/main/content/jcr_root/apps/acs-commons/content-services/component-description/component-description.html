@@ -1,0 +1,9 @@
+<ul data-sly-use.descriptor="com.adobe.acs.commons.contentservices.models.ContentServicesComponentDescriptor">
+
+    <li><label>JSON Key:</label> ${descriptor.jsonKey}</li>
+    <li><label>JSON Path:</label> ${descriptor.jsonPath}</li>
+    <li><label>JSON:</label>
+        <iframe style="background-color: #f7f7f7;   width: 500px; height: 200px; border: solid 1px #eee;"
+                src="${resource.path}.model.tidy.json"></iframe>
+    </li>
+</ul>
