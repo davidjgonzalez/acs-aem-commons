@@ -1,19 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <workspaceFilter version="1.0">
-    <filter root="/apps/acs-commons">
+    <filter root="/apps">
+        <include pattern="/apps/acs-commons(/.*)?"/>
+
         <exclude pattern="/apps/acs-commons/components/utilities/designer/clientlibsmanager/clientlibs/less/generated"/>
         <exclude pattern="/apps/acs-commons/components/content/column-control/clientlib/css/generated"/>
         <exclude pattern="/apps/acs-commons/widgets/source/css/generated"/>
         <exclude pattern="/apps/acs-commons/components/utilities/page/clientlibs/css/generated"/>
         <exclude pattern="/apps/acs-commons/components/utilities/oak-index-manager/clientlibs/css/generated"/>
         <exclude pattern="/apps/acs-commons/components/utilities/bulk-workflow-manager/clientlibs/css/generated"/>
-        <include pattern="/apps/acs-commons/components/utilities/page-compare(.*)?"/>
+        <include pattern="/apps/acs-commons/components/utilities/page-compare(/.*)?"/>
         <exclude pattern="/apps/acs-commons/components/utilities/page-compare/clientlibs/css/generated"/>
-        <include pattern="/apps/acs-commons/components/utilities/version-compare(.*)?"/>
+        <include pattern="/apps/acs-commons/components/utilities/version-compare(/.*)?"/>
         <exclude pattern="/apps/acs-commons/components/utilities/version-compare/clientlibs/css/generated"/>
+
+        <include pattern="/apps/cq/core/content/nav/tools/acs-commons(/.*)?"/>
+        <include pattern="/apps/dam/gui/content/assets/metadataeditor/jcr:content/content/items/col1/dialogpublishurl(/.*)?"/>
+        <include
+                pattern="/apps/dam/gui/content/assets/metadataeditor/jcr:content/content/items/col1/items/copypublishurl(/.*)?"/>
+        <include pattern="/apps/rep:policy"/>
+
+        <exclude pattern="/apps/acs-commons/application/install(/.*)?"/>
+        <exclude pattern="/apps/acs-commons/content/install(/.*)?"/>
     </filter>
-    <filter root="/apps/cq/core/content/nav/tools/acs-commons"/>
-    <filter root="/apps/dam/gui/content/assets/metadataeditor/jcr:content/content/items/col1/dialogpublishurl"/>
-    <filter root="/apps/dam/gui/content/assets/metadataeditor/jcr:content/content/items/col1/items/copypublishurl"/>
-    <filter root="/apps/rep:policy"/>
 </workspaceFilter>

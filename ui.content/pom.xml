@@ -55,24 +55,35 @@
             </plugin>
 
             <plugin>
-                <groupId>com.day.jcr.vault</groupId>
-                <artifactId>content-package-maven-plugin</artifactId>
+                <groupId>org.apache.jackrabbit</groupId>
+                <artifactId>filevault-package-maven-plugin</artifactId>
                 <extensions>true</extensions>
                 <configuration>
                     <group>adobe/consulting</group>
-                    <filterSource>src/main/content/META-INF/vault/filter.xml</filterSource>
+                    <name>${project.artifactId}</name>
+                    <version>${project.version}</version>
+
                     <properties>
                         <description>ACS AEM Commons content package containing content and configuration.</description>
-                        <acHandling>merge</acHandling>
                     </properties>
+
+                    <filterSource>src/main/content/META-INF/vault/filter.xml</filterSource>
+
+                    <finalName>${project.artifactId}-${project.version}</finalName>
+                    <packageType>content</packageType>
+                    <allowIndexDefinitions>true</allowIndexDefinitions>
+                    <!-- overwrite rep:ACE nodes defining policies for acs-aem-commons-owned service principals -->
+                    <accessControlHandling>merge</accessControlHandling>
+                    <thumbnailImage>../content/src/main/content/META-INF/vault/definition/thumbnail.png</thumbnailImage>
+
+                    <!--
                     <dependencies>
                         <dependency>
                             <group>adobe/consulting</group>
                             <name>acs-aem-commons-ui.apps</name>
-                            <version>${project.version}</version>
                         </dependency>
                     </dependencies>
-                    <targetURL>http://${crx.host}:${crx.port}${crx.contextRoot}/crx/packmgr/service.jsp</targetURL>
+                    -->
                 </configuration>
             </plugin>
             <plugin>
@@ -303,8 +314,13 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>com.day.jcr.vault</groupId>
+                <artifactId>content-package-maven-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
+
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -318,9 +334,16 @@
             <classifier>apis</classifier>
         </dependency>
     </dependencies>
+
+    <!-- ====================================================================== -->
+    <!-- P R O F I L E S                                                        -->
+    <!-- ====================================================================== -->
     <profiles>
         <profile>
             <id>autoInstallUiContentPackage</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
             <build>
                 <plugins>
                     <plugin>
@@ -328,11 +351,40 @@
                         <artifactId>content-package-maven-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>install-content-package</id>
-                                <phase>install</phase>
+                                <id>install-package</id>
                                 <goals>
                                     <goal>install</goal>
                                 </goals>
+                                <configuration>
+                                    <targetURL>http://${aem.host}:${aem.port}${aem.contextPath}/crx/packmgr/service.jsp</targetURL>
+                                    <failOnError>true</failOnError>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>autoInstallUiContentPackagePublish</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.day.jcr.vault</groupId>
+                        <artifactId>content-package-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>install-package-publish</id>
+                                <goals>
+                                    <goal>install</goal>
+                                </goals>
+                                <configuration>
+                                    <targetURL>http://${aem.publish.host}:${aem.publish.port}${aem.contextPath}/crx/packmgr/service.jsp</targetURL>
+                                    <failOnError>true</failOnError>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>

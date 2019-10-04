@@ -55,37 +55,101 @@
             </plugin>
 
             <plugin>
-                <groupId>com.day.jcr.vault</groupId>
-                <artifactId>content-package-maven-plugin</artifactId>
+                <groupId>org.apache.jackrabbit</groupId>
+                <artifactId>filevault-package-maven-plugin</artifactId>
                 <extensions>true</extensions>
                 <configuration>
                     <group>adobe/consulting</group>
+                    <name>${project.artifactId}</name>
+                    <version>${project.version}</version>
+
                     <properties>
-                        <description>ACS AEM Commons container content package which delivers acs-aem-commons-ui.apps and acs-aem-commons-ui.content.</description>
+                        <description>
+                            The ACS AEM Commons content package which deploys acs-aem-commons-ui.apps and acs-aem-commons-ui.content.
+                            &lt;br/&gt;
+                            &lt;br/&gt;
+                            The "min" ACS AEM Commons package is recommended if you are not using the ACS AEM Commons Twitter component.
+                        </description>
                     </properties>
+
                     <filterSource>src/main/content/META-INF/vault/filter.xml</filterSource>
-                    <targetURL>http://${crx.host}:${crx.port}${crx.contextRoot}/crx/packmgr/service.jsp</targetURL>
+
+                    <failOnEmptyFilter>false</failOnEmptyFilter>
+                    <allowIndexDefinitions>true</allowIndexDefinitions>
+                    <thumbnailImage>src/main/content/META-INF/vault/definition/thumbnail.png</thumbnailImage>
                 </configuration>
                 <executions>
+
+                    <!-- Default Package -->
                     <execution>
-                        <id>default-package</id>
+                        <id>generate-default-metadata</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>generate-metadata</goal>
+                        </goals>
                         <configuration>
-                            <subPackages>
-                                <subPackage>
+                            <properties>
+                                <description>
+                                    The "min" ACS AEM Commons content package which deploys acs-aem-commons-ui.apps and acs-aem-commons-ui.content.
+                                </description>
+                            </properties>
+
+                            <embeddeds>
+                                <embedded>
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>acs-aem-commons-ui.apps</artifactId>
                                     <scope>runtime</scope> <!-- this is hacky, but seems to be the easiest way to include the min artifacts since there's no way to specify a blank classifier -->
                                     <filter>true</filter>
-                                </subPackage>
-                                <subPackage>
+                                    <target>/apps/acs-commons/application/install</target>
+                                </embedded>
+                                <embedded>
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>acs-aem-commons-ui.content</artifactId>
                                     <scope>runtime</scope>
                                     <filter>true</filter>
-                                </subPackage>
-                            </subPackages>
+                                    <target>/apps/acs-commons/content/install</target>
+                                </embedded>
+                            </embeddeds>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>build-default-package</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>package</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>${project.artifactId}-${project.version}</finalName>
+                        </configuration>
+                    </execution>
+
+                    <!-- Min Package -->
+                    <execution>
+                        <id>generate-min-metadata</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>generate-metadata</goal>
+                        </goals>
+                        <configuration>
+                            <embeddeds>
+                                <embedded>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>acs-aem-commons-ui.apps</artifactId>
+                                    <classifier>min</classifier>
+                                    <filter>true</filter>
+                                    <target>/apps/acs-commons/application/install</target>
+                                </embedded>
+                                <embedded>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>acs-aem-commons-ui.content</artifactId>
+                                    <classifier>min</classifier>
+                                    <filter>true</filter>
+                                    <target>/apps/acs-commons/content/install</target>
+                                </embedded>
+                            </embeddeds>
+                        </configuration>
+                    </execution>
+
                     <execution>
                         <id>build-min-package</id>
                         <phase>package</phase>
@@ -93,21 +157,7 @@
                             <goal>package</goal>
                         </goals>
                         <configuration>
-                            <finalName>${project.build.finalName}-min</finalName>
-                            <subPackages>
-                                <subPackage>
-                                    <groupId>${project.groupId}</groupId>
-                                    <artifactId>acs-aem-commons-ui.apps</artifactId>
-                                    <classifier>min</classifier>
-                                    <filter>true</filter>
-                                </subPackage>
-                                <subPackage>
-                                    <groupId>${project.groupId}</groupId>
-                                    <artifactId>acs-aem-commons-ui.content</artifactId>
-                                    <classifier>min</classifier>
-                                    <filter>true</filter>
-                                </subPackage>
-                            </subPackages>
+                            <finalName>${project.artifactId}-${project.version}-min</finalName>
                         </configuration>
                     </execution>
                 </executions>
@@ -124,7 +174,7 @@
             </plugin>
 
             <!--
-            Since the min package execution of the content-package-maven-plugin is run second, the min artifact will be attached as the default project artifact.
+            Since the min package execution of the filevault-package-maven-plugin is run second, the min artifact will be attached as the default project artifact.
             So we have to override that to switch back to the originally produced artifact.
             -->
             <plugin>
@@ -260,6 +310,10 @@
                 </configuration>
             </plugin>
 
+            <plugin>
+                <groupId>com.day.jcr.vault</groupId>
+                <artifactId>content-package-maven-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
 
@@ -297,6 +351,9 @@
     <profiles>
         <profile>
             <id>autoInstallPackage</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
             <build>
                 <plugins>
                     <plugin>
@@ -304,11 +361,40 @@
                         <artifactId>content-package-maven-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>install-content-package</id>
-                                <phase>install</phase>
+                                <id>install-package</id>
                                 <goals>
                                     <goal>install</goal>
                                 </goals>
+                                <configuration>
+                                    <targetURL>http://${aem.host}:${aem.port}${aem.contextPath}/crx/packmgr/service.jsp</targetURL>
+                                    <failOnError>true</failOnError>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>autoInstallPackagePublish</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.day.jcr.vault</groupId>
+                        <artifactId>content-package-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>install-package-publish</id>
+                                <goals>
+                                    <goal>install</goal>
+                                </goals>
+                                <configuration>
+                                    <targetURL>http://${aem.publish.host}:${aem.publish.port}${aem.contextPath}/crx/packmgr/service.jsp</targetURL>
+                                    <failOnError>true</failOnError>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>

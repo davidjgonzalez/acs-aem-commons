@@ -58,22 +58,28 @@
         <include pattern="/etc/acs-commons/workflow-remover"/>
     </filter>
     <filter root="/etc/clientlibs/acs-commons"/>
-    <filter root="/etc/cloudservices/dtm">
+    <filter root="/etc/cloudservices">
+        <include pattern="/etc/cloudservices/dtm"/>
         <include pattern="/etc/cloudservices/dtm/jcr:content"/>
         <include pattern="/etc/cloudservices/dtm/rep:policy"/>
-    </filter>
-    <filter root="/etc/cloudservices/sharethis">
+
+        <include pattern="/etc/cloudservices/sharethis"/>
         <include pattern="/etc/cloudservices/sharethis/jcr:content"/>
         <include pattern="/etc/cloudservices/sharethis/rep:policy"/>
-    </filter>
-    <filter root="/etc/cloudservices/typekit">
+
+        <include pattern="/etc/cloudservices/typekit"/>
         <include pattern="/etc/cloudservices/typekit/jcr:content"/>
         <include pattern="/etc/cloudservices/typekit/rep:policy"/>
     </filter>
-    <filter root="/etc/dam/video/flacmono"/>
-    <filter root="/etc/dam/video/mp3hq"/>
-    <filter root="/etc/dam/video/ogghq"/>
+    <filter root="/etc/dam">
+        <include pattern="/etc/dam/video/flacmono(/.*)?"/>
+        <include pattern="/etc/dam/video/mp3hq(/.*)?"/>
+        <include pattern="/etc/dam/video/ogghq(/.*)?"/>
+    </filter>
     <filter root="/etc/designs/acs-commons"/>
+    <filter root="/etc/packages">
+        <include pattern="/etc/packages/rep:policy"/>
+    </filter>
     <filter root="/etc/notification/email">
         <include pattern="/etc/notification/email/rep:policy"/>
         <include pattern="/etc/notification/email/acs-commons"/>
@@ -81,10 +87,16 @@
     </filter>
     <filter root="/etc/rep:policy"/>
     <filter root="/etc/workflow/instances/rep:policy"/>
-    <filter root="/home/groups/rep:policy"/>
-    <filter root="/home/users/rep:policy"/>
-    <filter root="/home/users/system/acs-commons"/>
-    <filter root="/oak:index/rep:policy"/>
+    <filter root="/home/groups">
+        <include pattern="/home/groups/rep:policy"/>
+    </filter>
+    <filter root="/home/users">
+        <include pattern="/home/users/rep:policy"/>
+        <include pattern="/home/users/system/acs-commons(/.*)?"/>
+    </filter>
+    <filter root="/oak:index">
+        <include pattern="/oak:index/rep:policy"/>
+    </filter>
     <filter root="/rep:policy"/>
     <filter root="/var/acs-commons">
         <include pattern="/var/acs-commons/rep:policy"/>
@@ -92,10 +104,11 @@
         <include pattern="/var/acs-commons/reports"/>
         <include pattern="/var/acs-commons/reports/jcr:content"/>
         <include
-            pattern="/etc/acs-commons/reports(.*)?"
+            pattern="/etc/acs-commons/reports(/.*)?"
             mode="merge"/>
         <include pattern="/var/acs-commons/httpcache"/>
         <include pattern="/var/acs-commons/on-deploy-scripts-status"/>
     </filter>
     <filter root="/var/workflow/instances/rep:policy"/>
+
 </workspaceFilter>
