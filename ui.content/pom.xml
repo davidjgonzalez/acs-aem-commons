@@ -75,15 +75,14 @@
                     <!-- overwrite rep:ACE nodes defining policies for acs-aem-commons-owned service principals -->
                     <accessControlHandling>merge</accessControlHandling>
                     <thumbnailImage>../content/src/main/content/META-INF/vault/definition/thumbnail.png</thumbnailImage>
-
-                    <!--
+                    
                     <dependencies>
                         <dependency>
                             <group>adobe/consulting</group>
                             <name>acs-aem-commons-ui.apps</name>
                         </dependency>
                     </dependencies>
-                    -->
+
                 </configuration>
             </plugin>
             <plugin>
