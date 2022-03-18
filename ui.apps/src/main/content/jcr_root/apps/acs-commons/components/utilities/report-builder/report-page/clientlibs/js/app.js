@@ -33,11 +33,12 @@ angular.module('acs-commons-report-page-app', ['acsCoral', 'ACS.Commons.notifica
 			$http({
 				method: 'GET',
 				url: $scope.app.uri+ '?wcmmode=disabled&'+ params
-			}).success(function (data, status, headers, config) {
+			}).then(function (response) {
 				window.location.hash = '#' + params;
 				var time = new Date().getTime() - start;
-				data.time=time;
-				$('.report__result').html(data);
+
+				response.data.time=time;
+				$('.report__result').html(response.data);
 				$('.report__result .pagination__link').click(function(){
 					$scope.run($(this).data('page'));
 					return false;
@@ -50,7 +51,7 @@ angular.module('acs-commons-report-page-app', ['acsCoral', 'ACS.Commons.notifica
 				NotificationsService.add('success', 'SUCCESS', 'Ran report in '+time+'ms!');
 				$('input,select,coral-select').removeAttr('disabled');
 				dfd.resolve();
-			}).error(function (data, status, headers, config) {
+			}, function (response) {
 				NotificationsService.running(false);
 				NotificationsService.add('error', 'ERROR', 'Unable to run report due to error!');
 				$('input,select,coral-select').removeAttr('disabled');
@@ -73,7 +74,9 @@ angular.module('acs-commons-report-page-app', ['acsCoral', 'ACS.Commons.notifica
         		if(window.location.hash !== '' && window.location.hash !== '#'){
             		var params = window.location.hash.substr(1);
             		loadResults(params).done(function(){
-            			var url = new URL(window.location.hash.replace('#','?'));
+
+            			var url = new URL('https://dev.null' + window.location.hash.replace('#','?'));
+
                 		url.searchParams.forEach(function(val,key){
                 			$('input[name="'+key+'"]:not([type="checkbox"])').val(val);
                 			var $sel = $('coral-select[name="'+key+'"]');

@@ -76,7 +76,7 @@
                     <coral-shell-homeanchor-label>Adobe Experience Manager</coral-shell-homeanchor-label>
                 </a>
                 <a href="/apps/acs-commons/content/reports.html" style="text-decoration: none">
-                    <span style="line-height: 2.375rem; color: #fff">/ ACS AEM Commons / Reports </span>
+                    <span style="line-height: 2.375rem; color: #fff">/ ACS AEM Commons / Reports&nbsp;</span>
                 </a>
                 <span style="line-height: 2.375rem;">/ ${pageTitle}</span>
             </coral-shell-header-home>

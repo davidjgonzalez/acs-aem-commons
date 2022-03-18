@@ -40,24 +40,22 @@ angular.module('acs-commons-oak-index-manager-app', ['acsCoral', 'ACS.Commons.no
                 method: 'GET',
                 url: encodeURI($scope.app.resource + '.list.json'),
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-            }).
-                success(function (data, status, headers, config) {
+            }).then(function (response) {
 
-                    $scope.async.status = data['async-status'] || '';
-                    $scope.async.start = data['async-start'] || '';
-                    $scope.async.reindexDone = data['async-reindex-done'] || '';
-                    $scope.async.reindexStatus = data['async-reindex-status'] || '';
+                    $scope.async.status = response.data['async-status'] || '';
+                    $scope.async.start = response.data['async-start'] || '';
+                    $scope.async.reindexDone = response.data['async-reindex-done'] || '';
+                    $scope.async.reindexStatus = response.data['async-reindex-status'] || '';
 
                     $scope.indexes = [];
 
-                    angular.forEach(data, function (index, key) {
+                    angular.forEach(response.data, function (index, key) {
                         if (index['jcr:primaryType'] === 'oak:QueryIndexDefinition') {
                             $scope.put(key, index);
                         }
                     });
 
-                }).
-                error(function (data, status, headers, config) {
+                }, function (response) {
                     NotificationsService.add('error', 'ERROR', 'Unable to retrieve Oak indexes; Ensure you are running with elevated permissions and are on AEM6+');
                 });
         };
@@ -69,16 +67,14 @@ angular.module('acs-commons-oak-index-manager-app', ['acsCoral', 'ACS.Commons.no
                 url: encodeURI($scope.app.resource + '.get.json'),
                 params: { name: index.name },
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-            }).
-                success(function (data, status, headers, config) {
-                    $scope.put(index.name, data);
+            }).then(function (response) {
+                    $scope.put(index.name, response.data);
 
-                    if(reindexing && !data.reindex) {
+                    if(reindexing && !response.data.reindex) {
                         $timeout.cancel(index.timeout);
                         NotificationsService.add('success', 'SUCCESS', 'Reindex completed for: ' + index.name);
                     }
-                }).
-                error(function (data, status, headers, config) {
+                }, function (response) {
                     $scope.addNotification('error', 'ERROR', 'Unable to retrieve Oak index: ' + index.name);
                 });
         };
@@ -91,11 +87,9 @@ angular.module('acs-commons-oak-index-manager-app', ['acsCoral', 'ACS.Commons.no
                 url: encodeURI($scope.app.resource + '.reindex.json'),
                 data: 'name=' + index.name,
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-            }).
-                success(function (data, status, headers, config) {
+            }).then(function (response) {
                     NotificationsService.add('info', 'INFO', 'Reindex requested for: ' + index.name);
-                }).
-                error(function (data, status, headers, config) {
+                }, function (response) {
                     index.reindex = false;
                     NotificationsService.add('error', 'ERROR', 'Reindex request failed for: ' + index.name);
                 });
@@ -129,28 +123,27 @@ angular.module('acs-commons-oak-index-manager-app', ['acsCoral', 'ACS.Commons.no
                 data: data,
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'}
             }).
-                success(function (data, status, headers, config) {
+                then(function (response) {
+                    var i;
+                    for(i in bulkIndexes) {
+                        $scope.refresh(bulkIndexes[i]);
+                    }a
+
+                    if (data.success) {
+                        $scope.addNotification('info', 'INFO', 'Bulk reindex requested for: ' + response.data.success.join(', '));
+                    }
+                }, function (response) {
                     var i;
                     for(i in bulkIndexes) {
                         $scope.refresh(bulkIndexes[i]);
                     }
 
                     if (data.success) {
-                        $scope.addNotification('info', 'INFO', 'Bulk reindex requested for: ' + data.success.join(', '));
-                    }
-                }).
-                error(function (data, status, headers, config) {
-                    var i;
-                    for(i in bulkIndexes) {
-                        $scope.refresh(bulkIndexes[i]);
-                    }
-
-                    if (data.success) {
-                        NotificationsService.add('info', 'INFO', 'Bulk reindex request succeeded for: ' + data.success.join(', '));
+                        NotificationsService.add('info', 'INFO', 'Bulk reindex request succeeded for: ' + response.data.success.join(', '));
                     }
 
                     if (data.error) {
-                        NotificationsService.add('error', 'ERROR', 'Bulk reindex request failed for: ' + data.error.join(', '));
+                        NotificationsService.add('error', 'ERROR', 'Bulk reindex request failed for: ' + response.data.error.join(', '));
                     }
                 });
 

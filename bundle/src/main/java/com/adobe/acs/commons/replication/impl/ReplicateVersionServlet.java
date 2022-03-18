@@ -160,7 +160,7 @@ public class ReplicateVersionServlet extends SlingAllMethodsServlet {
     private Date getDate(String datetime) {
         Date date = null;
         try {
-            String modifiedDate = datetime.substring(0, datetime.indexOf('+'));
+            String modifiedDate = datetime;//.substring(0, datetime.indexOf('+'));
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm");
             sdf.setTimeZone(TimeZone.getTimeZone("GMT"));
             date = sdf.parse(modifiedDate);

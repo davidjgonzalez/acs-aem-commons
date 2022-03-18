@@ -36,11 +36,11 @@ angular.module('acs-commons-qr-code-app', ['acsCoral', 'ACS.Commons.notification
         $http({
             method: 'GET',
             url: $scope.app.uri + '/config/enabled'
-        }).success(function (data) {
-            $scope.form.enabled = data;
-        }).error(function (data, status) {
+        }).then(function (response) {
+            $scope.form.enabled = response.data;
+        }, function (response) {
             // Response code 404 will be when configs are not available
-            if (status !== 404) {
+            if (response.status !== 404) {
                 NotificationsService.add('error', "Error", "Something went wrong while fetching previous configurations");
             }
         });
@@ -54,8 +54,7 @@ angular.module('acs-commons-qr-code-app', ['acsCoral', 'ACS.Commons.notification
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
-        }).
-        success(function (data, status, headers, config) {
+        }).then(function (response) {
             if ($scope.form.enabled) {
                 $http({
                     method: 'POST',
@@ -79,9 +78,8 @@ angular.module('acs-commons-qr-code-app', ['acsCoral', 'ACS.Commons.notification
             $scope.app.running = false;
             NotificationsService.add('success', "Success", "Your configuration has been saved");
             NotificationsService.running($scope.app.running);
-        }).
-        error(function (data) {
-            NotificationsService.add('error', 'ERROR', data.title + '. ' + data.message);
+        }, function (response) {
+            NotificationsService.add('error', 'ERROR', response.data.title + '. ' + response.data.message);
             $scope.app.running = false;
             NotificationsService.running($scope.app.running);
 

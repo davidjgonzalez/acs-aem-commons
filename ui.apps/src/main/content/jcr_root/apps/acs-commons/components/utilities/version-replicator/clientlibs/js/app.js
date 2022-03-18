@@ -43,18 +43,18 @@ angular.module('acs-commons-version-replicator-app', ['acsCoral', 'ACS.Commons.n
                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
                 },
                 transformRequest: angular.identity
-            }).success(function (data, status, headers, config) {
+            }).then(function (response) {
                 $scope.app.running = false;
                 $scope.app.error = false;
                 $scope.app.results = true;
-                $scope.results = data.result;
+                $scope.results = response.data.result;
                 $('#results').show();
                 $scope.buildAgentInfoHTML($('#versionReplicator').find('input[name="cmbAgent"]:checked'));
-            }).error(function (data, status, headers, config) {
+            }, function (response) {
                 $scope.app.running = false;
                 $scope.app.results = false;
                 $scope.app.error = true;
-                $scope.showErrorMsg(data);
+                $scope.showErrorMsg(response.data);
             });
         };
         $scope.toggleModelSelection = function (agentId) {

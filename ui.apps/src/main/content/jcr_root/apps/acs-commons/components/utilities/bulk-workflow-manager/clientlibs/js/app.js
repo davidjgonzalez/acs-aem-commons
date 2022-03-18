@@ -78,18 +78,18 @@ angular.module('acs-commons-bulk-workflow-manager-app', ['acsCoral', 'ACS.Common
                     url: $scope.app.uri + '.start.json',
                     data: 'params=' + encodeURIComponent(JSON.stringify($scope.form)),
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-                }).success(function (data, status, headers, config) {
-                    $scope.data.status = data || {};
+                }.then(function (response) {
+                    $scope.data.status = response.data || {};
                     $scope.status();
                     $scope.form = {};
 
                     NotificationsService.shift();
-                }).error(function (data, status, headers, config) {
+                }, function (response) {
                     NotificationsService.shift();
 
                     NotificationsService.add('error',
-                        data.title || "Error starting Bulk Workflow",
-                        data.message);
+                        response.data.title || "Error starting Bulk Workflow",
+                        response.data.message);
                 });
 
                 NotificationsService.add('notice',
@@ -104,16 +104,16 @@ angular.module('acs-commons-bulk-workflow-manager-app', ['acsCoral', 'ACS.Common
                     method: 'POST',
                     url: $scope.app.uri + '.stop.json',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-                }).success(function (data, status, headers, config) {
-                    $scope.data.status = data || {};
+                }).then(function (response) {
+                    $scope.data.status = response.data || {};
 
                     if ($scope.data.status.status === 'STOPPED') {
                         $timeout.cancel($scope.app.pollingPromise);
                     }
-                }).error(function (data, status, headers, config) {
+                }, function (response) {
                     NotificationsService.add('error',
-                        data.title || 'Error stopping the bulk workflow process.',
-                        data.message);
+                        response.data.title || 'Error stopping the bulk workflow process.',
+                        response.data.message);
                 });
             };
 
@@ -123,13 +123,13 @@ angular.module('acs-commons-bulk-workflow-manager-app', ['acsCoral', 'ACS.Common
                     url: $scope.app.uri + '.resume.json',
                     data: 'params=' + encodeURIComponent(JSON.stringify({interval: $scope.form.interval})),
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-                }).success(function (data, status, headers, config) {
-                    $scope.data.status = data || {};
+                }).then(function (response) {
+                    $scope.data.status = response.data || {};
                     $scope.status();
-                }).error(function (data, status, headers, config) {
+                }, function (response) {
                     NotificationsService.add('error',
-                        data.title || 'Error resuming bulk workflow process.',
-                        data.message);
+                        response.data.title || 'Error resuming bulk workflow process.',
+                        response.data.message);
                 });
             };
 
@@ -141,8 +141,8 @@ angular.module('acs-commons-bulk-workflow-manager-app', ['acsCoral', 'ACS.Common
                     method: 'GET',
                     url: $scope.app.uri + '.status.json',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-                }).success(function (data, status, headers, config) {
-                    $scope.data.status = data || {};
+                }).then(function (response) {
+                    $scope.data.status = response.data || {};
                     if (!forceStatus) {
                         if ($scope.data.status.status === 'RUNNING') {
                             $scope.app.pollingPromise = $timeout(function () {
@@ -154,10 +154,10 @@ angular.module('acs-commons-bulk-workflow-manager-app', ['acsCoral', 'ACS.Common
                     }
 
                     $scope.app.polling = false;
-                }).error(function (data, status, headers, config) {
+                }, function (response) {
                     $scope.app.polling = false;
                     NotificationsService.add('error',
-                        'Could not retrieve bulk workflow status.', data.message);
+                        'Could not retrieve bulk workflow status.', response.data.message);
                 });
             };
 
@@ -167,13 +167,13 @@ angular.module('acs-commons-bulk-workflow-manager-app', ['acsCoral', 'ACS.Common
                     method: 'GET',
                     url: $scope.app.uri + '.init-form.json',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-                }).success(function (data, status, headers, config) {
-                    $scope.formOptions = data || {};
-                    $scope.form.selectUserEventData = data.userEventData[0];
-                }).error(function (data, status, headers, config) {
+                }).then(function (response) {
+                    $scope.formOptions = response.data || {};
+                    $scope.form.selectUserEventData = response.data.userEventData[0];
+                }, function (response) {
                     NotificationsService.add('error',
-                        data.title || 'Error retrieving form values from the server.',
-                        data.message);
+                        response.data.title || 'Error retrieving form values from the server.',
+                        response.data.message);
                 });
             };
 

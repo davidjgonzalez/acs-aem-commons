@@ -39,26 +39,6 @@ angular.module('acs-commons-audit-log-search-app', ['acsCoral', 'ACS.Commons.not
 
 		$scope.result = {};
 
-		/*
-		$scope.createIndex = function () {
-			NotificationsService.running(true);
-			
-			$http({
-				method: 'POST',
-				url: '/oak:index/cqAuditEvent?'+ $('#create-index-form').serialize()
-			}).success(function (data, status, headers, config) {
-				NotificationsService.running(false);
-				NotificationsService.add('success', 'SUCCESS', 'Index Created!');
-				$('.index-warning').hide();
-				return false;
-			}).error(function (data, status, headers, config) {
-				NotificationsService.running(false);
-				NotificationsService.add('error', 'ERROR', 'Failed to create index!');
-			});
-			return false;
-		};
-		*/
-
 		$scope.search = function () {
 			var start = new Date().getTime();
 			NotificationsService.running(true);
@@ -66,24 +46,23 @@ angular.module('acs-commons-audit-log-search-app', ['acsCoral', 'ACS.Commons.not
 			$http({
 				method: 'GET',
 				url: $scope.app.uri+ '?'+ $('#audit-log-search-form').serialize()
-			}).success(function (data, status, headers, config) {
-
+			}).then(function (response) {
+                var data = response.data;
 				var time = new Date().getTime() - start;
-				data.time=time;
+				data.time = time;
 				$scope.result = data || {};
 				NotificationsService.running(false);
 				if(data.succeeded){
-					NotificationsService.add('success', 'SUCCESS', 'Found '+data.count+' audit events in '+time+'ms!');
+					NotificationsService.add('success', 'SUCCESS', 'Found ' + data.count + ' audit events in '+time+'ms!');
 				} else if (data.indexOf('The query read or traversed more than ') !== -1){
 					NotificationsService.add('error', 'ERROR', 'Unable to search audit logs due to traversal limits, please ensure you have Oak Indexes installed!');
 				} else {
 					NotificationsService.add('error', 'ERROR', 'Unable to search audit logs, please consult logs for further information!');
 				}
-			}).error(function (data, status, headers, config) {
+			}, function (response) {
 				NotificationsService.running(false);
 				NotificationsService.add('error', 'ERROR', 'Unable to search audit logs!');
 			});
-
 		};
 
         $scope.init = function () {

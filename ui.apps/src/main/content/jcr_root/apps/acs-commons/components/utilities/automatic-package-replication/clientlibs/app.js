@@ -25,7 +25,6 @@ angular.module('acs-commons-automatic-package-replication-app', ['acsCoral', 'AC
         $scope.save = function () {
         	
 			NotificationsService.running(true);
-            
 
             var $form = $('#fn-acsCommons-APR-form');
 

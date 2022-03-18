@@ -41,12 +41,12 @@ angular.module('acs-commons-users-to-csv-app', ['acsCoral', 'ACS.Commons.notific
                 $http({
                     method: 'GET',
                     url: encodeURI($scope.app.resource + '.init.json')
-                }).success(function (data, status, headers, config) {
-                    $scope.options = data.options;
-                    $scope.form = data.form;
-                }).error(function (data, status, headers, config) {
+                }).then(function (response) {
+                    $scope.options = response.data.options;
+                    $scope.form = response.data.form;
+                }, function (response) {
                     NotificationsService.add('error',
-                        'ERROR', 'Could not save configuration: ' + data);
+                        'ERROR', 'Could not save configuration: ' + response.data);
                 });
             };
 
@@ -56,12 +56,12 @@ angular.module('acs-commons-users-to-csv-app', ['acsCoral', 'ACS.Commons.notific
                     url: encodeURI($scope.app.resource + '.save.json'),
                     data: 'params=' + JSON.stringify($scope.form),
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-                }).success(function (data, status, headers, config) {
+                }).then(function (response) {
                     NotificationsService.add('success',
                         'SUCCESS', 'Configuration saved');
-                }).error(function (data, status, headers, config) {
+                }, function (response) {
                     NotificationsService.add('error',
-                        'ERROR', 'Could not save configuration: ' + data);
+                        'ERROR', 'Could not save configuration: ' + response.data);
                 });
             };
 
