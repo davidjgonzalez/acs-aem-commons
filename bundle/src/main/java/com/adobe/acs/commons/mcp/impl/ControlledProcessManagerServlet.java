@@ -228,9 +228,19 @@ public class ControlledProcessManagerServlet extends SlingAllMethodsServlet {
 
     private Collection<ProcessInstance> doProcessList() {
         ArrayList<ProcessInstance> processes = new ArrayList();
+
+        Long start = System.currentTimeMillis();
         processes.addAll(manager.getActiveProcesses());
+        LOG.debug("Spent [ {}ms ] calling getActiveProcesses()", System.currentTimeMillis() - start);
+
+        start = System.currentTimeMillis();
         processes.addAll(manager.getInactiveProcesses());
+        LOG.debug("Spent [ {}ms ] calling getInactiveProcesses()", System.currentTimeMillis() - start);
+
+        start = System.currentTimeMillis();
         processes.sort(Comparator.comparing((ProcessInstance p) -> p.getInfo().getStartTime()).reversed());
+        LOG.debug("Spent [ {}ms ] sorting processes", System.currentTimeMillis() - start);
+
         return processes;
     }
 }

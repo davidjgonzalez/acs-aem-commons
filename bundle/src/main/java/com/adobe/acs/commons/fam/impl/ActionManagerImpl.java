@@ -70,6 +70,11 @@ class ActionManagerImpl extends CancelHandler implements ActionManager, Serializ
     // This is a delay of how long an action manager should wait before it can safely assume it really is done and no more work is being added
     // This helps prevent an action manager from closing itself down while the queue is warming up.
     public static final transient int HESITATION_DELAY = 50;
+
+    // This is a magic number. If the number of tasks is less than this number, then the HESITATION_DELAY will be in effect.
+    // This is to prevent sleeping on every isComplete() check for large jobs.
+    private static final transient int HESITATION_DELAY_THRESHOLD = 13;
+
     // The cleanup task will wait this many milliseconds between its polling to see if the queue has been completely processed
     public static final transient int COMPLETION_CHECK_INTERVAL = 100;
     private final AtomicInteger tasksAdded = new AtomicInteger();
@@ -159,7 +164,7 @@ class ActionManagerImpl extends CancelHandler implements ActionManager, Serializ
             runActionAndLogErrors(action, closesResolver);
         }, this, priority);
     }
-    
+
     @SuppressWarnings("squid:S1181")
     private void runActionAndLogErrors(CheckedConsumer<ResourceResolver> action, Boolean closesResolver) {
         started.compareAndSet(0, System.currentTimeMillis());
@@ -324,15 +329,15 @@ class ActionManagerImpl extends CancelHandler implements ActionManager, Serializ
             }, priority);
         }
     }
-    
+
     private void savePendingChanges() {
-      for (ReusableResolver resolver : resolvers) {
-        try {
-          resolver.commit();
-        } catch (PersistenceException e) {
-          logPersistenceException(resolver.getPendingItems(), e);
+        for (ReusableResolver resolver : resolvers) {
+            try {
+                resolver.commit();
+            } catch (PersistenceException e) {
+                logPersistenceException(resolver.getPendingItems(), e);
+            }
         }
-      }
     }
 
     @Override
@@ -410,10 +415,15 @@ class ActionManagerImpl extends CancelHandler implements ActionManager, Serializ
     @SuppressWarnings("squid:S2142")
     public boolean isComplete() {
         if (tasksCompleted.get() == tasksAdded.get()) {
-            try {
-                Thread.sleep(HESITATION_DELAY);
-            } catch (InterruptedException ex) {
-                // no-op
+            if (tasksAdded.get() <= HESITATION_DELAY_THRESHOLD) {
+                try {
+                    LOG.debug("Sleeping for [ {}ms ] on isComplete() check because {} <= {}", HESITATION_DELAY, tasksAdded.get(), HESITATION_DELAY_THRESHOLD);
+                    Thread.sleep(HESITATION_DELAY);
+                } catch (InterruptedException ex) {
+                    // no-op
+                }
+            } else {
+                LOG.trace("Skipping sleeping for [ {}ms ] on isComplete() check because {} > {}", HESITATION_DELAY, tasksAdded.get(), HESITATION_DELAY_THRESHOLD);
             }
             return tasksCompleted.get() == tasksAdded.get();
         } else {
@@ -425,14 +435,14 @@ class ActionManagerImpl extends CancelHandler implements ActionManager, Serializ
     public CompositeData getStatistics() throws OpenDataException {
         return new CompositeDataSupport(statsCompositeType, statsItemNames,
                 new Object[]{
-                    name,
-                    priority,
-                    tasksAdded.get(),
-                    tasksCompleted.get(),
-                    tasksFilteredOut.get(),
-                    tasksSuccessful.get(),
-                    tasksError.get(),
-                    getRuntime()
+                        name,
+                        priority,
+                        tasksAdded.get(),
+                        tasksCompleted.get(),
+                        tasksFilteredOut.get(),
+                        tasksSuccessful.get(),
+                        tasksError.get(),
+                        getRuntime()
                 }
         );
     }
@@ -485,10 +495,10 @@ class ActionManagerImpl extends CancelHandler implements ActionManager, Serializ
                     "Statics Row",
                     "Single row of statistics",
                     statsItemNames,
-                            new String[] { "Name", "Priority", "Started", "Completed", "Filtered", "Successful",
-                                    "Errors", "Runtime" }, new OpenType[] { SimpleType.STRING, SimpleType.INTEGER,
-                                    SimpleType.INTEGER, SimpleType.INTEGER, SimpleType.INTEGER, SimpleType.INTEGER,
-                                    SimpleType.INTEGER, SimpleType.LONG });
+                    new String[] { "Name", "Priority", "Started", "Completed", "Filtered", "Successful",
+                            "Errors", "Runtime" }, new OpenType[] { SimpleType.STRING, SimpleType.INTEGER,
+                    SimpleType.INTEGER, SimpleType.INTEGER, SimpleType.INTEGER, SimpleType.INTEGER,
+                    SimpleType.INTEGER, SimpleType.LONG });
             statsTabularType = new TabularType("Statistics", "Collected statistics", statsCompositeType, new String[]{"_taskName"});
 
             failureItemNames = new String[]{"_taskName", "_count", "item", "error"};

@@ -91,7 +91,12 @@ public class ProcessInstanceImpl implements ProcessInstance, Serializable {
 
     @Override
     public double updateProgress() {
+
+        Long start = System.currentTimeMillis();
         double sectionWeight = 1.0 / actions.size();
+        LOG.debug("Spent [ {}ms ] updating sectionWeight", System.currentTimeMillis() - start);
+
+        start = System.currentTimeMillis();
         double progress = actions.stream()
                 .map(action -> action.manager)
                 .filter(action -> action.getAddedCount() > 0)
@@ -99,12 +104,22 @@ public class ProcessInstanceImpl implements ProcessInstance, Serializable {
                         -> sectionWeight * (double) action.getCompletedCount() / (double) action.getAddedCount()
                 ));
         infoBean.setProgress(progress);
+        LOG.debug("Spent [ {}ms ] updating progress", System.currentTimeMillis() - start);
+
+        start = System.currentTimeMillis();
         infoBean.setStatus(actions.stream().filter(a -> !a.manager.isComplete()).map(a -> a.name).findFirst().orElse("Please wait..."));
+        LOG.debug("Spent [ {}ms ] updating status", System.currentTimeMillis() - start);
+
+        start = System.currentTimeMillis();
         int countCompleted = actions.stream().collect(Collectors.summingInt(action -> action.manager.getCompletedCount()));
         infoBean.getResult().setTasksCompleted(
                 Math.max(infoBean.getResult().getTasksCompleted(), countCompleted)
         );
+        LOG.debug("Spent [ {}ms ] updating countCompleted", System.currentTimeMillis() - start);
+
+        start = System.currentTimeMillis();
         infoBean.setReportedErrors(actions.stream().flatMap(a -> a.manager.getFailureList().stream()).map(ArchivedProcessFailure::adapt).collect(Collectors.toList()));
+        LOG.debug("Spent [ {}ms ] updating reportedErrors", System.currentTimeMillis() - start);
 
         return progress;
     }

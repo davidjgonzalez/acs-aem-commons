@@ -18,6 +18,10 @@
 
 var ScriptRunner = {
     SERVLET_URL: "/apps/acs-commons/content/manage-controlled-processes/jcr:content",
+    polling: {
+        count: 0,
+        intervals: [1000, 2000, 3000, 4000, 5000, 6000,, 7000, 8000, 9000, 10000, 20000, 30000, 60000]
+    },
     init: function () {
         if (document.getElementById("processListing")) {
             ScriptRunner.processTable = document.getElementById("processListing");
@@ -73,7 +77,7 @@ var ScriptRunner = {
                 dialog.started = true;
                 ScriptRunner.startProcess();
             }
-        });    
+        });
     },
     processDefinitionSelected: function (event) {
         if (event && event.target && event.target.selectedItem) {
@@ -176,7 +180,7 @@ var ScriptRunner = {
                 }
                 if (noErrors) {
                     jQuery("#processListing").trigger("foundation-contentloaded");
-                    ScriptRunner.pollingLoop();
+                    ScriptRunner.pollingLoop(ScriptRunner.polling.intervals[0]);
                 } else {
                     ScriptRunner.rebuildProcessList();
                 }
@@ -198,10 +202,14 @@ var ScriptRunner = {
             return true;
         }
     },
-    pollingLoop: function () {
+    pollingLoop: function (pollingInterval) {
+        pollingInterval = pollingInterval || ScriptRunner.polling.intervals[ScriptRunner.polling.intervals.length - 1];
+
         if (ScriptRunner.watchList && ScriptRunner.watchList.length > 0) {
+
             window.setTimeout(function () {
-                console.log("polling status...");
+                console.log("polling for status ... " + ScriptRunner.polling.count);
+
                 jQuery.ajax({
                     url: ScriptRunner.SERVLET_URL + ".status.json",
                     dataType: "json",
@@ -226,7 +234,7 @@ var ScriptRunner = {
                             processRow.find(".process-tasks-completed").html(process.infoBean.result.tasksCompleted);
                         }
                         if (noErrors) {
-                            ScriptRunner.pollingLoop();
+                            ScriptRunner.pollingLoop(ScriptRunner.polling.intervals[ScriptRunner.polling.count++]);
                         } else {
                             ScriptRunner.rebuildProcessList();
                         }
@@ -236,7 +244,7 @@ var ScriptRunner = {
                         ids: ScriptRunner.watchList
                     }
                 });
-            }, 500);
+            }, pollingInterval);
         }
     },
     error: function (e) {
@@ -307,7 +315,9 @@ var ScriptRunner = {
                 });
 
                 diag.show();
-                diag.querySelector('[handle="wrapper"]').classList.add("coral--light");
+                if (diag.querySelector('[handle="wrapper"]') && diag.querySelector('[handle="wrapper"]').classList) {
+                    diag.querySelector('[handle="wrapper"]').classList.add("coral--light");
+                }
                 diag.on('click', '#haltButton', function () {
                     diag.hide();
                     ScriptRunner.haltProcess(processId);                    
