@@ -1,0 +1,27 @@
+<script>
+
+document.querySelector('form').addEventListener('submit', function (event) {
+    var password = document.querySelector('input[name="password"]').value;
+    var confirmPassword = document.querySelector('input[name="confirmPassword"]').value;
+
+    if (password !== confirmPassword) {
+        event.preventDefault();
+        alert('Passwords do not match');
+    } else {
+        fetch('/libs/granite/csrf/token.json').then(function (response) {
+                console.log('back from csrf');
+                return response.json();
+            }).then(function (data) {
+                var csrfToken = data.token;
+                var csrfTokenInput = document.createElement('input');
+                csrfTokenInput.type = 'hidden';
+                csrfTokenInput.name = 'CSRF-TOKEN';
+                csrfTokenInput.value = csrfToken;
+                this.appendChild(csrfTokenInput);
+            });
+    }
+});
+
+
+
+</script>
