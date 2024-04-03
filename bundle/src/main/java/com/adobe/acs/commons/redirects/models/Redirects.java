@@ -35,9 +35,11 @@ import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ValueMap;
+import org.apache.sling.models.annotations.Default;
 import org.apache.sling.models.annotations.Model;
 import org.apache.sling.models.annotations.injectorspecific.OSGiService;
 import org.apache.sling.models.annotations.injectorspecific.SlingObject;
+import org.apache.sling.models.annotations.injectorspecific.ValueMapValue;
 import org.jetbrains.annotations.NotNull;
 
 import static com.adobe.acs.commons.redirects.models.RedirectRule.*;
@@ -50,16 +52,24 @@ public class Redirects {
 
     public static final String CFG_PROP_CONTEXT_PREFIX = "contextPrefix";
     public static final String CFG_PROP_IGNORE_SELECTORS = "ignoreSelectors";
+    private static final String CFG_PROP_BROWSE_PAGE_SIZE = "pageSize";
+    private static final String CFG_PROP_SEARCH_RESULTS_SIZE = "searchResultsSize";
+    public static final int DEFAULT_SEARCH_RESULTS_SIZE = 100;
+    public static final int DEFAULT_BROWSER_PAGE_SIZE = 100;
 
+    public static final int MAX_SIZE = 1000;
     @SlingObject
     private SlingHttpServletRequest request;
 
     @OSGiService
     private QueryBuilder queryBuilder;
 
-
     int pageNumber = 1;
-    int pageSize = 100;
+
+    int pageSize;
+
+    int searchResultsSize;
+
     List<List<Resource>> pages;
 
     String contextPrefix;
@@ -67,11 +77,20 @@ public class Redirects {
 
     @PostConstruct
     protected void init() {
-
         Resource configResource = request.getRequestPathInfo().getSuffixResource();
         ValueMap properties = configResource.getValueMap();
         contextPrefix = properties.get(Redirects.CFG_PROP_CONTEXT_PREFIX, "");
         ignoreSelectors = properties.get(Redirects.CFG_PROP_IGNORE_SELECTORS, false);
+
+        pageSize = properties.get(CFG_PROP_BROWSE_PAGE_SIZE, DEFAULT_BROWSER_PAGE_SIZE);
+        if (pageSize < 1 || pageSize > MAX_SIZE) {
+            pageSize = DEFAULT_BROWSER_PAGE_SIZE;
+        }
+
+        searchResultsSize = properties.get(CFG_PROP_SEARCH_RESULTS_SIZE, DEFAULT_SEARCH_RESULTS_SIZE);
+        if (searchResultsSize < 1 || searchResultsSize > MAX_SIZE) {
+            searchResultsSize = DEFAULT_SEARCH_RESULTS_SIZE;
+        }
 
         List<Resource> all = new ArrayList<>();
 
@@ -88,6 +107,7 @@ public class Redirects {
             configResource.listChildren().forEachRemaining(all::add);
             pages = Lists.partition(all, pageSize);
         }
+
     }
 
     public List<Resource> getItems() {
@@ -166,7 +186,7 @@ public class Redirects {
         map.put("orderby.sort", "desc");
 
         map.put("p.offset", "0");
-        map.put("p.limit", "100");
+        map.put("p.limit", String.valueOf(searchResultsSize));
 
         map.put("p.guessTotal", "true");
 

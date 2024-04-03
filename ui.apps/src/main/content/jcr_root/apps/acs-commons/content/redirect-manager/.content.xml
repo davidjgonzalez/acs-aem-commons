@@ -368,14 +368,51 @@
                             name="./ignoreSelectors"
                             uncheckedValue="{Boolean}false"
                             value="{Boolean}true"/>
-                    <fulltextSearchEnabled
+
+                    <browsePageSize
                             jcr:primaryType="nt:unstructured"
-                            sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
-                            fieldDescription="This requires the deployment of a custom Oak index."
-                            text="Use fulltext search for redirect rule search."
-                            name="./fulltextSearchEnabled"
-                            uncheckedValue="{Boolean}false"
-                            value="{Boolean}true"/>
+                            sling:resourceType="granite/ui/components/coral/foundation/form/numberfield"
+                            fieldLabel="Browse page size"
+                            fieldDescription="The number of results shown per browse page."
+                            name="./pageSize"
+                            min="{Long}1"
+                            max="{Long}1000"
+                            required="{Boolean}true"
+                            value="{Long}1000"/>
+
+                    <fulltext-search
+                            jcr:primaryType="nt:unstructured"
+                            jcr:title="Fulltext search"
+                            sling:resourceType="granite/ui/components/coral/foundation/form/fieldset">
+                        <items jcr:primaryType="nt:unstructured">
+
+                            <fulltextSearchEnabledDescription
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/text"
+                                    text="Fulltext search requires the deployment of a custom Oak index. If an appropriate Oak index is not present on AEM and the fulltext search checkbox is selected, no results will appear for searches."/>
+
+
+                            <fulltextSearchEnabled
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
+                                    fieldDescription="This requires the deployment of a custom Oak index."
+                                    text="Use fulltext search for redirect rule search."
+                                    name="./fulltextSearchEnabled"
+                                    uncheckedValue="{Boolean}false"
+                                    value="{Boolean}true"/>
+
+                            <fulltextSearchResultsSize
+                                    jcr:primaryType="nt:unstructured"
+                                    sling:resourceType="granite/ui/components/coral/foundation/form/numberfield"
+                                    fieldLabel="Search results size"
+                                    fieldDescription="The number of search results displayed. Only used when fulltext search is enabled."
+                                    name="./searchResultsSize"
+                                    min="{Long}1"
+                                    max="{Long}1000"
+                                    required="{Boolean}true"
+                                    value="{Long}100"/>
+                        </items>
+                    </fulltext-search>
                     <cache-control-headers
                             jcr:primaryType="nt:unstructured"
                             jcr:title="Default Cache Control Headers"
