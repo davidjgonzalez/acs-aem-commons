@@ -391,7 +391,6 @@
                                     sling:resourceType="granite/ui/components/coral/foundation/text"
                                     text="Fulltext search requires the deployment of a custom Oak index. If an appropriate Oak index is not present on AEM and the fulltext search checkbox is selected, no results will appear for searches."/>
 
-
                             <fulltextSearchEnabled
                                     jcr:primaryType="nt:unstructured"
                                     sling:resourceType="granite/ui/components/coral/foundation/form/checkbox"
